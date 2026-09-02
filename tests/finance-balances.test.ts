@@ -19,3 +19,19 @@ describe("calculateBalances", () => {
     expect(result).toEqual({ cash: 700, bank: 500, total: 1200 });
   });
 });
+
+
+describe("multiple accounts", () => {
+  it("moves money between named bank accounts", async () => {
+    const { calculateAccountBalances } = await import("../lib/finance-calculations");
+    const result = calculateAccountBalances([
+      { type: "transfer", amount: 250, fromAccountId: "cash", toAccountId: "bank-arab", account: "cash" },
+      { type: "transfer", amount: 100, fromAccountId: "bank-arab", toAccountId: "bank-housing", account: "bank" },
+    ], [
+      { id: "cash", kind: "cash", openingBalance: 1000 },
+      { id: "bank-arab", kind: "bank", openingBalance: 200 },
+      { id: "bank-housing", kind: "bank", openingBalance: 50 },
+    ]);
+    expect(result).toEqual({ cash: 750, "bank-arab": 350, "bank-housing": 150 });
+  });
+});
