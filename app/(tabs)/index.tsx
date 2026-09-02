@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { useFinance, formatMoney, type Account, type EntryType } from "@/lib/finance-context";
+import { useFinance, formatMoney, type EntryType } from "@/lib/finance-context";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
 function EntryModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const { addEntry } = useFinance();
+  const { addEntry, accounts } = useFinance();
   const [type, setType] = useState<EntryType>("debit");
-  const [account, setAccount] = useState<Account>("cash");
+  const [accountId, setAccountId] = useState("cash");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [date, setDate] = useState(today());
@@ -17,7 +17,7 @@ function EntryModal({ visible, onClose }: { visible: boolean; onClose: () => voi
     const value = Number(amount.replace(",", "."));
     if (!value || value <= 0) return Alert.alert("المبلغ غير صحيح", "اكتب مبلغًا أكبر من صفر.");
     if (!note.trim()) return Alert.alert("أكمل البيان", "اكتب وصفًا مختصرًا للعملية.");
-    addEntry({ type, account, amount: value, note: note.trim(), date: date || today() });
+    addEntry({ type, account: accounts.find((account) => account.id === accountId)?.kind ?? "cash", accountId, amount: value, note: note.trim(), date: date || today() });
     setAmount(""); setNote(""); setDate(today()); onClose();
   };
 
@@ -27,7 +27,7 @@ function EntryModal({ visible, onClose }: { visible: boolean; onClose: () => voi
       <Text style={styles.label}>نوع العملية</Text>
       <View style={styles.segmentRow}>{([["debit", "مدين · دخل"], ["credit", "دائن · مصروف"]] as [EntryType, string][]).map(([value, label]) => <Pressable key={value} onPress={() => setType(value)} style={[styles.segment, type === value && styles.segmentActive]}><Text style={[styles.segmentText, type === value && styles.segmentTextActive]}>{label}</Text></Pressable>)}</View>
       <Text style={styles.label}>الحساب</Text>
-      <View style={styles.segmentRow}>{([["cash", "نقدي"], ["bank", "بنكي"]] as [Account, string][]).map(([value, label]) => <Pressable key={value} onPress={() => setAccount(value)} style={[styles.segment, account === value && styles.segmentActive]}><Text style={[styles.segmentText, account === value && styles.segmentTextActive]}>{label}</Text></Pressable>)}</View>
+      <View style={styles.accountChoices}>{accounts.map((account) => <Pressable key={account.id} onPress={() => setAccountId(account.id)} style={[styles.accountChoice, accountId === account.id && styles.accountChoiceActive]}><Text style={[styles.accountChoiceText, accountId === account.id && styles.accountChoiceTextActive]}>{account.name}</Text></Pressable>)}</View>
       <Text style={styles.label}>المبلغ</Text><TextInput value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor="#98A2B3" style={styles.input} />
       <Text style={styles.label}>البيان</Text><TextInput value={note} onChangeText={setNote} placeholder="مثال: مشتريات المنزل" placeholderTextColor="#98A2B3" style={styles.input} />
       <Text style={styles.label}>تاريخ العملية</Text><TextInput value={date} onChangeText={setDate} placeholder="2026-09-02" placeholderTextColor="#98A2B3" style={styles.input} />
@@ -56,18 +56,19 @@ function TransferModal({ visible, onClose }: { visible: boolean; onClose: () => 
 }
 
 export default function HomeScreen() {
-  const { cashBalance, bankBalance, totalBalance, entries } = useFinance();
+  const { cashBalance, bankBalance, totalBalance, entries, accounts, currency } = useFinance();
+  const money = (value: number): string => formatMoney(value, currency.symbol);
   const [showAdd, setShowAdd] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   return <ScreenContainer className="px-5 pt-5" containerClassName="bg-background">
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
       <Text style={styles.eyebrow}>دفتر مالي شخصي</Text><Text style={styles.title}>ملخصك اليومي</Text>
-      <View style={styles.totalCard}><Text style={styles.totalCaption}>الرصيد الإجمالي</Text><Text style={styles.totalValue}>{formatMoney(totalBalance)}</Text><Text style={styles.totalHint}>النقد + البنك</Text></View>
-      <View style={styles.balanceRow}><View style={[styles.smallCard, { borderTopColor: "#0F9B8E" }]}><Text style={styles.smallLabel}>النقد المتوفر</Text><Text style={styles.smallValue}>{formatMoney(cashBalance)}</Text></View><View style={[styles.smallCard, { borderTopColor: "#17365D" }]}><Text style={styles.smallLabel}>في البنك</Text><Text style={styles.smallValue}>{formatMoney(bankBalance)}</Text></View></View>
+      <View style={styles.totalCard}><Text style={styles.totalCaption}>الرصيد الإجمالي</Text><Text style={styles.totalValue}>{money(totalBalance)}</Text><Text style={styles.totalHint}>النقد + البنك</Text></View>
+      <View style={styles.balanceRow}><View style={[styles.smallCard, { borderTopColor: "#0F9B8E" }]}><Text style={styles.smallLabel}>النقد المتوفر</Text><Text style={styles.smallValue}>{money(cashBalance)}</Text></View><View style={[styles.smallCard, { borderTopColor: "#17365D" }]}><Text style={styles.smallLabel}>في البنك</Text><Text style={styles.smallValue}>{money(bankBalance)}</Text></View></View>
       <Pressable onPress={() => setShowAdd(true)} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}><Text style={styles.addIcon}>＋</Text><View><Text style={styles.addTitle}>إضافة حركة جديدة</Text><Text style={styles.addSub}>مدين أو دائن · نقدي أو بنكي</Text></View></Pressable>
-      <Pressable onPress={() => setShowTransfer(true)} style={({ pressed }) => [styles.transferButton, pressed && styles.pressed]}><Text style={styles.transferIcon}>⇄</Text><View><Text style={styles.transferTitle}>تحويل من النقد إلى البنك</Text><Text style={styles.transferSub}>اعرف ما تبقى نقدًا بعد التحويل</Text></View></Pressable>
+      <Pressable onPress={() => setShowTransfer(true)} style={({ pressed }) => [styles.transferButton, pressed && styles.pressed]}><Text style={styles.transferIcon}>⇄</Text><View><Text style={styles.transferTitle}>تحويل بين الحسابات</Text><Text style={styles.transferSub}>اختر المصدر والوجهة وتابع الرصيد المتبقي</Text></View></Pressable>
       <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>آخر العمليات</Text><Text style={styles.count}>{entries.length} عملية</Text></View>
-      {entries.length === 0 ? <View style={styles.empty}><Text style={styles.emptyIcon}>دفتر</Text><Text style={styles.emptyTitle}>لا توجد عمليات بعد</Text><Text style={styles.emptyText}>ابدأ بتسجيل أول دخل أو مصروف لتظهر الأرصدة هنا.</Text></View> : entries.slice(0, 5).map((entry) => <View key={entry.id} style={styles.transaction}><View style={[styles.dot, { backgroundColor: entry.type === "debit" ? "#0F9B8E" : "#D95D55" }]} /><View style={styles.transactionInfo}><Text style={styles.transactionNote}>{entry.note}</Text><Text style={styles.transactionMeta}>{entry.date} · {entry.account === "cash" ? "نقدي" : "بنكي"}</Text></View><Text style={[styles.transactionAmount, { color: entry.type === "debit" ? "#0F9B8E" : "#D95D55" }]}>{entry.type === "debit" ? "+" : "-"}{formatMoney(entry.amount)}</Text></View>)}
+      {entries.length === 0 ? <View style={styles.empty}><Text style={styles.emptyIcon}>دفتر</Text><Text style={styles.emptyTitle}>لا توجد عمليات بعد</Text><Text style={styles.emptyText}>ابدأ بتسجيل أول دخل أو مصروف لتظهر الأرصدة هنا.</Text></View> : entries.slice(0, 5).map((entry) => <View key={entry.id} style={styles.transaction}><View style={[styles.dot, { backgroundColor: entry.type === "debit" ? "#0F9B8E" : "#D95D55" }]} /><View style={styles.transactionInfo}><Text style={styles.transactionNote}>{entry.note}</Text><Text style={styles.transactionMeta}>{entry.date} · {accounts.find((account) => account.id === (entry.accountId ?? entry.account))?.name ?? (entry.account === "cash" ? "نقدي" : "بنكي")}</Text></View><Text style={[styles.transactionAmount, { color: entry.type === "debit" ? "#0F9B8E" : "#D95D55" }]}>{entry.type === "debit" ? "+" : "-"}{money(entry.amount)}</Text></View>)}
     </ScrollView><EntryModal visible={showAdd} onClose={() => setShowAdd(false)} /><TransferModal visible={showTransfer} onClose={() => setShowTransfer(false)} />
   </ScreenContainer>;
 }

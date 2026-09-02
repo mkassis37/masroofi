@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Share } from "react-native";
 import { calculateAccountBalances, calculateBalances } from "./finance-calculations";
+import { DEFAULT_CURRENCY, findCurrency, type Currency } from "./currencies";
 
 export type EntryType = "debit" | "credit" | "transfer";
 export type Account = "cash" | "bank";
@@ -25,8 +26,12 @@ type FinanceContextValue = {
   setOpeningBalances: (cash: number, bank: number) => void;
   addBankAccount: (name: string, openingBalance: number) => void;
   updateAccountOpeningBalance: (accountId: string, amount: number) => void;
+  renameBankAccount: (accountId: string, name: string) => void;
+  deleteBankAccount: (accountId: string) => boolean;
   transferBetweenAccounts: (fromAccountId: string, toAccountId: string, amount: number, note: string, date: string) => void;
   exportEntries: () => Promise<void>;
+  currency: Currency;
+  setCurrency: (code: string) => void;
 };
 
 const STORAGE_KEY = "masroofi-finance-v1";
@@ -37,6 +42,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [entries, setEntries] = useState<FinancialEntry[]>([]);
   const [accounts, setAccounts] = useState<FinancialAccount[]>([{ id: "cash", name: "النقد", kind: "cash", openingBalance: 0, createdAt: 0 }, defaultBank()]);
   const [loading, setLoading] = useState(true);
+  const [currencyCode, setCurrencyCode] = useState(DEFAULT_CURRENCY.code);
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
@@ -45,10 +51,11 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       const legacyAccounts: FinancialAccount[] = [{ id: "cash", name: "النقد", kind: "cash", openingBalance: Number(saved.openingCash) || 0, createdAt: 0 }, { ...defaultBank(), openingBalance: Number(saved.openingBank) || 0 }];
       setAccounts(saved.accounts?.length ? saved.accounts : legacyAccounts);
       setEntries((saved.entries ?? []).map((entry: FinancialEntry) => ({ ...entry, accountId: entry.accountId ?? (entry.account === "cash" ? "cash" : "bank") })));
+      setCurrencyCode(saved.currencyCode ?? DEFAULT_CURRENCY.code);
     }).catch(() => undefined).finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { if (!loading) AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ entries, accounts })).catch(() => undefined); }, [entries, accounts, loading]);
+  useEffect(() => { if (!loading) AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ entries, accounts, currencyCode })).catch(() => undefined); }, [entries, accounts, currencyCode, loading]);
 
   const accountBalances = useMemo(() => calculateAccountBalances(entries, accounts.map(({ id, kind, openingBalance }) => ({ id, kind, openingBalance }))), [entries, accounts]);
   const cashBalance = accountBalances.cash ?? 0;
@@ -57,15 +64,18 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const totalBalance = Object.values(accountBalances).reduce((sum, value) => sum + value, 0);
 
   const value = useMemo<FinanceContextValue>(() => ({
-    entries, accounts, bankAccounts, accountBalances, openingCash: accounts.find((a) => a.id === "cash")?.openingBalance ?? 0, openingBank: accounts.find((a) => a.id === "bank")?.openingBalance ?? 0, cashBalance, bankBalance, totalBalance, loading,
+    entries, accounts, bankAccounts, accountBalances, currency: findCurrency(currencyCode), openingCash: accounts.find((a) => a.id === "cash")?.openingBalance ?? 0, openingBank: accounts.find((a) => a.id === "bank")?.openingBalance ?? 0, cashBalance, bankBalance, totalBalance, loading,
     addEntry: (entry) => setEntries((current) => [{ ...entry, id: `${Date.now()}-${Math.random()}`, createdAt: Date.now() }, ...current]),
     deleteEntry: (id) => setEntries((current) => current.filter((entry) => entry.id !== id)),
     setOpeningBalances: (cash, bank) => setAccounts((current) => current.map((account) => account.id === "cash" ? { ...account, openingBalance: cash } : account.id === "bank" ? { ...account, openingBalance: bank } : account)),
     addBankAccount: (name, openingBalance) => { const cleanName = name.trim(); if (!cleanName) return; setAccounts((current) => [...current, { id: `bank-${Date.now()}`, name: cleanName, kind: "bank", openingBalance, createdAt: Date.now() }]); },
     updateAccountOpeningBalance: (accountId, amount) => setAccounts((current) => current.map((account) => account.id === accountId ? { ...account, openingBalance: amount } : account)),
+    renameBankAccount: (accountId, name) => { const cleanName = name.trim(); if (!cleanName) return; setAccounts((current) => current.map((account) => account.id === accountId && account.kind === "bank" ? { ...account, name: cleanName } : account)); },
+    deleteBankAccount: (accountId) => { if (accountId === "bank" || entries.some((entry) => entry.accountId === accountId || entry.fromAccountId === accountId || entry.toAccountId === accountId)) return false; setAccounts((current) => current.filter((account) => account.id !== accountId)); return true; },
     transferBetweenAccounts: (fromAccountId, toAccountId, amount, note, date) => { if (fromAccountId === toAccountId || amount <= 0) return; setEntries((current) => [{ id: `${Date.now()}-${Math.random()}`, type: "transfer", amount, account: accounts.find((account) => account.id === fromAccountId)?.kind ?? "cash", accountId: fromAccountId, fromAccountId, toAccountId, note, date, createdAt: Date.now() }, ...current]); },
+    setCurrency: (code) => setCurrencyCode(findCurrency(code).code),
     exportEntries: async () => { const header = "التاريخ,النوع,الحساب,البيان,المبلغ"; const rows = entries.map((entry) => `${entry.date},${entry.type === "debit" ? "مدين" : entry.type === "credit" ? "دائن" : "تحويل"},${accounts.find((account) => account.id === (entry.accountId ?? entry.account))?.name ?? entry.account},${entry.note.replace(/,/g, " ")},${entry.amount.toFixed(2)}`); await Share.share({ title: "سجل مصروفي", message: [header, ...rows].join("\n") || header }); },
-  }), [entries, accounts, bankAccounts, accountBalances, cashBalance, bankBalance, totalBalance, loading]);
+  }), [entries, accounts, bankAccounts, accountBalances, cashBalance, bankBalance, totalBalance, loading, currencyCode]);
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>;
 }
