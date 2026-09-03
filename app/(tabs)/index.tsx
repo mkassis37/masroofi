@@ -6,19 +6,20 @@ import { useFinance, formatMoney, type EntryType } from "@/lib/finance-context";
 const today = () => new Date().toISOString().slice(0, 10);
 
 function EntryModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const { addEntry, accounts } = useFinance();
+  const { addEntry, accounts, categories } = useFinance();
   const [type, setType] = useState<EntryType>("debit");
   const [accountId, setAccountId] = useState("cash");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [date, setDate] = useState(today());
+  const [category, setCategory] = useState("other");
 
   const save = () => {
     const value = Number(amount.replace(",", "."));
     if (!value || value <= 0) return Alert.alert("المبلغ غير صحيح", "اكتب مبلغًا أكبر من صفر.");
     if (!note.trim()) return Alert.alert("أكمل البيان", "اكتب وصفًا مختصرًا للعملية.");
-    addEntry({ type, account: accounts.find((account) => account.id === accountId)?.kind ?? "cash", accountId, amount: value, note: note.trim(), date: date || today() });
-    setAmount(""); setNote(""); setDate(today()); onClose();
+    addEntry({ type, account: accounts.find((account) => account.id === accountId)?.kind ?? "cash", accountId, amount: value, note: note.trim(), date: date || today(), category: type === "credit" ? category : undefined });
+    setAmount(""); setNote(""); setDate(today()); setCategory("other"); onClose();
   };
 
   return <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -29,6 +30,7 @@ function EntryModal({ visible, onClose }: { visible: boolean; onClose: () => voi
       <Text style={styles.label}>الحساب</Text>
       <View style={styles.accountChoices}>{accounts.map((account) => <Pressable key={account.id} onPress={() => setAccountId(account.id)} style={[styles.accountChoice, accountId === account.id && styles.accountChoiceActive]}><Text style={[styles.accountChoiceText, accountId === account.id && styles.accountChoiceTextActive]}>{account.name}</Text></Pressable>)}</View>
       <Text style={styles.label}>المبلغ</Text><TextInput value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor="#98A2B3" style={styles.input} />
+      {type === "credit" && <><Text style={styles.label}>تصنيف المصروف</Text><View style={styles.accountChoices}>{categories.map((item) => <Pressable key={item.id} onPress={() => setCategory(item.id)} style={[styles.accountChoice, category === item.id && styles.accountChoiceActive]}><Text style={[styles.accountChoiceText, category === item.id && styles.accountChoiceTextActive]}>{item.name}</Text></Pressable>)}</View></>}
       <Text style={styles.label}>البيان</Text><TextInput value={note} onChangeText={setNote} placeholder="مثال: مشتريات المنزل" placeholderTextColor="#98A2B3" style={styles.input} />
       <Text style={styles.label}>تاريخ العملية</Text><TextInput value={date} onChangeText={setDate} placeholder="2026-09-02" placeholderTextColor="#98A2B3" style={styles.input} />
       <Pressable onPress={save} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}><Text style={styles.primaryText}>حفظ العملية</Text></Pressable>

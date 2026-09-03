@@ -32,7 +32,7 @@ const env = {
   appSlug: "my-finance-tracker",
   // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
-  logoUrl: "/manus-storage/masroofi-icon_bde2829a.png",
+  logoUrl: "/manus-storage/masroofi-user-icon_db8ae66b.png",
   scheme: schemeFromBundleId,
   iosBundleId: bundleId,
   androidPackage: bundleId,
@@ -86,6 +86,9 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
+    ["expo-local-authentication", { faceIDPermission: "اسمح لتطبيق مصروفي باستخدام Face ID لحماية بياناتك المالية." }],
+    "expo-secure-store",
+    "expo-document-picker",
     [
       "expo-audio",
       {

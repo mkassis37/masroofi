@@ -9,6 +9,7 @@ import { Platform } from "react-native";
 import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
 import { FinanceProvider } from "@/lib/finance-context";
+import { AppLock } from "@/components/app-lock";
 import {
   SafeAreaFrameContext,
   SafeAreaInsetsContext,
@@ -102,6 +103,7 @@ export default function RootLayout() {
     return (
       <ThemeProvider>
         <FinanceProvider>
+          <AppLock>
           <SafeAreaProvider initialMetrics={providerInitialMetrics}>
             <SafeAreaFrameContext.Provider value={frame}>
               <SafeAreaInsetsContext.Provider value={insets}>
@@ -109,6 +111,7 @@ export default function RootLayout() {
               </SafeAreaInsetsContext.Provider>
             </SafeAreaFrameContext.Provider>
           </SafeAreaProvider>
+          </AppLock>
         </FinanceProvider>
       </ThemeProvider>
     );
@@ -117,7 +120,9 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <FinanceProvider>
+        <AppLock>
         <SafeAreaProvider initialMetrics={providerInitialMetrics}>{content}</SafeAreaProvider>
+        </AppLock>
       </FinanceProvider>
     </ThemeProvider>
   );

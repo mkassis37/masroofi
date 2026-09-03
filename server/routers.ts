@@ -1,7 +1,9 @@
 import { COOKIE_NAME } from "../shared/const.js";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import * as db from "./db";
+import { z } from "zod";
 
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -17,12 +19,16 @@ export const appRouter = router({
     }),
   }),
 
-  // TODO: add feature routers here, e.g.
-  // todo: router({
-  //   list: protectedProcedure.query(({ ctx }) =>
-  //     db.getUserTodos(ctx.user.id)
-  //   ),
-  // }),
+  cloud: router({
+    get: protectedProcedure.query(async ({ ctx }) => {
+      const row = await db.getFinanceCloud(ctx.user.id);
+      return row ? { payload: row.payload, updatedAt: row.updatedAt } : null;
+    }),
+    save: protectedProcedure.input(z.object({ payload: z.string().min(2).max(1000000) })).mutation(async ({ ctx, input }) => {
+      await db.saveFinanceCloud(ctx.user.id, input.payload);
+      return { success: true } as const;
+    }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

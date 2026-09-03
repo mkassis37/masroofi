@@ -25,4 +25,11 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+export const financeCloud = mysqlTable("finance_cloud", {
+  userId: int("userId").primaryKey(),
+  payload: text("payload").notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type FinanceCloud = typeof financeCloud.$inferSelect;
+export type InsertFinanceCloud = typeof financeCloud.$inferInsert;
