@@ -12,15 +12,15 @@ export type Account = "cash" | "bank";
 export type AccountKind = "cash" | "bank";
 export type FinancialAccount = { id: string; name: string; kind: AccountKind; openingBalance: number; createdAt: number };
 export type FinancialEntry = { id: string; type: EntryType; amount: number; account: Account; accountId?: string; fromAccountId?: string; toAccountId?: string; note: string; date: string; category?: string; createdAt: number };
-export type ExpenseCategory = { id: string; name: string; color: string };
+export type ExpenseCategory = { id: string; name: string; color: string; icon: string };
 
 export const DEFAULT_CATEGORIES: ExpenseCategory[] = [
-  { id: "food", name: "طعام", color: "#0F9B8E" },
-  { id: "transport", name: "مواصلات", color: "#3B82F6" },
-  { id: "bills", name: "فواتير", color: "#C88A16" },
-  { id: "shopping", name: "مشتريات", color: "#8B5CF6" },
-  { id: "health", name: "صحة", color: "#D95D55" },
-  { id: "other", name: "أخرى", color: "#667085" },
+  { id: "food", name: "طعام", color: "#0F9B8E", icon: "●" },
+  { id: "transport", name: "مواصلات", color: "#3B82F6", icon: "◆" },
+  { id: "bills", name: "فواتير", color: "#C88A16", icon: "▣" },
+  { id: "shopping", name: "مشتريات", color: "#8B5CF6", icon: "✦" },
+  { id: "health", name: "صحة", color: "#D95D55", icon: "★" },
+  { id: "other", name: "أخرى", color: "#667085", icon: "◉" },
 ];
 
 type FinanceContextValue = {
@@ -51,6 +51,8 @@ type FinanceContextValue = {
   restorePayload: (payload: string) => boolean;
   currency: Currency;
   setCurrency: (code: string) => void;
+  addCategory: (name: string, color: string, icon: string) => void;
+  deleteCategory: (categoryId: string) => boolean;
 };
 
 const STORAGE_KEY = "masroofi-finance-v1";
@@ -112,6 +114,8 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     deleteBankAccount: (accountId) => { if (accountId === "bank" || entries.some((entry) => entry.accountId === accountId || entry.fromAccountId === accountId || entry.toAccountId === accountId)) return false; setAccounts((current) => current.filter((account) => account.id !== accountId)); return true; },
     transferBetweenAccounts: (fromAccountId, toAccountId, amount, note, date) => { if (fromAccountId === toAccountId || amount <= 0 || !note.trim()) return; setEntries((current) => [{ id: `${Date.now()}-${Math.random()}`, type: "transfer", amount, account: accounts.find((account) => account.id === fromAccountId)?.kind ?? "cash", accountId: fromAccountId, fromAccountId, toAccountId, note: note.trim(), date, createdAt: Date.now() }, ...current]); },
     setCurrency: (code) => setCurrencyCode(findCurrency(code).code),
+    addCategory: (name, color, icon) => { const cleanName = name.trim(); if (!cleanName || !color || !icon || categories.some((category) => category.name === cleanName)) return; setCategories((current) => [...current, { id: `category-${Date.now()}`, name: cleanName, color, icon }]); },
+    deleteCategory: (categoryId) => { if (DEFAULT_CATEGORIES.some((category) => category.id === categoryId) || entries.some((entry) => entry.category === categoryId)) return false; setCategories((current) => current.filter((category) => category.id !== categoryId)); return true; },
     exportEntries: async () => { const header = "التاريخ,النوع,الحساب,التصنيف,البيان,المبلغ"; const rows = entries.map((entry) => `${entry.date},${entry.type === "debit" ? "مدين" : entry.type === "credit" ? "دائن" : "تحويل"},${accounts.find((account) => account.id === (entry.accountId ?? entry.account))?.name ?? entry.account},${categories.find((category) => category.id === entry.category)?.name ?? "-"},${entry.note.replace(/,/g, " ")},${entry.amount.toFixed(2)}`); await Share.share({ title: "سجل مصروفي", message: [header, ...rows].join("\n") }); },
     getBackupPayload: () => JSON.stringify({ schemaVersion: BACKUP_VERSION, exportedAt: new Date().toISOString(), entries, accounts, categories, currencyCode }),
     restorePayload: (text) => { try { const parsed = JSON.parse(text) as unknown; if (!isValidBackup(parsed)) return false; const backup = parsed as { entries: FinancialEntry[]; accounts: FinancialAccount[]; categories?: ExpenseCategory[]; currencyCode?: string }; setEntries(backup.entries); setAccounts(backup.accounts); setCategories(backup.categories?.length ? backup.categories : DEFAULT_CATEGORIES); setCurrencyCode(backup.currencyCode ?? DEFAULT_CURRENCY.code); return true; } catch { return false; } },
