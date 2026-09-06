@@ -13,6 +13,7 @@ export type AccountKind = "cash" | "bank";
 export type FinancialAccount = { id: string; name: string; kind: AccountKind; openingBalance: number; createdAt: number };
 export type FinancialEntry = { id: string; type: EntryType; amount: number; account: Account; accountId?: string; fromAccountId?: string; toAccountId?: string; note: string; date: string; category?: string; createdAt: number };
 export type ExpenseCategory = { id: string; name: string; color: string; icon: string };
+export type YearRollover = { id: string; year: number; cashBalance: number; bankBalance: number; totalBalance: number; createdAt: number };
 
 export const DEFAULT_CATEGORIES: ExpenseCategory[] = [
   { id: "food", name: "طعام", color: "#0F9B8E", icon: "●" },
@@ -53,6 +54,8 @@ type FinanceContextValue = {
   setCurrency: (code: string) => void;
   addCategory: (name: string, color: string, icon: string) => void;
   deleteCategory: (categoryId: string) => boolean;
+  yearlyRollovers: YearRollover[];
+  rolloverYear: (year: number) => void;
 };
 
 const STORAGE_KEY = "masroofi-finance-v1";
@@ -81,20 +84,22 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<ExpenseCategory[]>(DEFAULT_CATEGORIES);
   const [loading, setLoading] = useState(true);
   const [currencyCode, setCurrencyCode] = useState(DEFAULT_CURRENCY.code);
+  const [yearlyRollovers, setYearlyRollovers] = useState<YearRollover[]>([]);
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
       if (!raw) return;
-      const saved = JSON.parse(raw) as Partial<{ entries: FinancialEntry[]; accounts: FinancialAccount[]; categories: ExpenseCategory[]; currencyCode: string; openingCash: number; openingBank: number }>;
+      const saved = JSON.parse(raw) as Partial<{ entries: FinancialEntry[]; accounts: FinancialAccount[]; categories: ExpenseCategory[]; currencyCode: string; openingCash: number; openingBank: number; yearlyRollovers: YearRollover[] }>;
       const legacyAccounts: FinancialAccount[] = [{ id: "cash", name: "النقد", kind: "cash", openingBalance: Number(saved.openingCash) || 0, createdAt: 0 }, { ...defaultBank(), openingBalance: Number(saved.openingBank) || 0 }];
       setAccounts(saved.accounts?.length ? saved.accounts : legacyAccounts);
       setEntries((saved.entries ?? []).map((entry) => ({ ...entry, accountId: entry.accountId ?? (entry.account === "cash" ? "cash" : "bank"), category: entry.category ?? (entry.type === "credit" ? "other" : undefined) })));
       setCategories(saved.categories?.length ? saved.categories : DEFAULT_CATEGORIES);
       setCurrencyCode(saved.currencyCode ?? DEFAULT_CURRENCY.code);
+      setYearlyRollovers(saved.yearlyRollovers ?? []);
     }).catch(() => undefined).finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { if (!loading) AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ entries, accounts, categories, currencyCode })).catch(() => undefined); }, [entries, accounts, categories, currencyCode, loading]);
+  useEffect(() => { if (!loading) AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ entries, accounts, categories, currencyCode, yearlyRollovers })).catch(() => undefined); }, [entries, accounts, categories, currencyCode, yearlyRollovers, loading]);
 
   const accountBalances = useMemo(() => calculateAccountBalances(entries, accounts.map(({ id, kind, openingBalance }) => ({ id, kind, openingBalance }))), [entries, accounts]);
   const cashBalance = accountBalances.cash ?? 0;
@@ -116,6 +121,8 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     setCurrency: (code) => setCurrencyCode(findCurrency(code).code),
     addCategory: (name, color, icon) => { const cleanName = name.trim(); if (!cleanName || !color || !icon || categories.some((category) => category.name === cleanName)) return; setCategories((current) => [...current, { id: `category-${Date.now()}`, name: cleanName, color, icon }]); },
     deleteCategory: (categoryId) => { if (DEFAULT_CATEGORIES.some((category) => category.id === categoryId) || entries.some((entry) => entry.category === categoryId)) return false; setCategories((current) => current.filter((category) => category.id !== categoryId)); return true; },
+    yearlyRollovers,
+    rolloverYear: (year) => { if (yearlyRollovers.some((item) => item.year === year)) return; setYearlyRollovers((current) => [...current, { id: `rollover-${year}`, year, cashBalance, bankBalance, totalBalance, createdAt: Date.now() }]); },
     exportEntries: async () => { const header = "التاريخ,النوع,الحساب,التصنيف,البيان,المبلغ"; const rows = entries.map((entry) => `${entry.date},${entry.type === "debit" ? "مدين" : entry.type === "credit" ? "دائن" : "تحويل"},${accounts.find((account) => account.id === (entry.accountId ?? entry.account))?.name ?? entry.account},${categories.find((category) => category.id === entry.category)?.name ?? "-"},${entry.note.replace(/,/g, " ")},${entry.amount.toFixed(2)}`); await Share.share({ title: "سجل مصروفي", message: [header, ...rows].join("\n") }); },
     getBackupPayload: () => JSON.stringify({ schemaVersion: BACKUP_VERSION, exportedAt: new Date().toISOString(), entries, accounts, categories, currencyCode }),
     restorePayload: (text) => { try { const parsed = JSON.parse(text) as unknown; if (!isValidBackup(parsed)) return false; const backup = parsed as { entries: FinancialEntry[]; accounts: FinancialAccount[]; categories?: ExpenseCategory[]; currencyCode?: string }; setEntries(backup.entries); setAccounts(backup.accounts); setCategories(backup.categories?.length ? backup.categories : DEFAULT_CATEGORIES); setCurrencyCode(backup.currencyCode ?? DEFAULT_CURRENCY.code); return true; } catch { return false; } },
@@ -141,7 +148,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         Alert.alert("استعادة البيانات؟", "سيتم استبدال البيانات الحالية بعد التأكيد.", [{ text: "إلغاء", style: "cancel" }, { text: "استعادة", style: "destructive", onPress: () => { const restored = JSON.stringify(parsed); if (value.restorePayload(restored)) Alert.alert("تمت الاستعادة", "تم استرجاع سجلاتك بنجاح."); } }]);
       } catch { Alert.alert("تعذر الاستعادة", "تأكد من اختيار ملف JSON صالح ثم حاول مرة أخرى."); }
     },
-  }), [entries, accounts, bankAccounts, accountBalances, categories, cashBalance, bankBalance, totalBalance, loading, currencyCode]);
+  }), [entries, accounts, bankAccounts, accountBalances, categories, cashBalance, bankBalance, totalBalance, loading, currencyCode, yearlyRollovers]);
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>;
 }

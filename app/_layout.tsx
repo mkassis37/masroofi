@@ -9,6 +9,7 @@ import { Platform } from "react-native";
 import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
 import { FinanceProvider } from "@/lib/finance-context";
+import { AppPreferencesProvider } from "@/lib/app-preferences";
 import { AppLock } from "@/components/app-lock";
 import {
   SafeAreaFrameContext,
@@ -101,6 +102,7 @@ export default function RootLayout() {
 
   if (shouldOverrideSafeArea) {
     return (
+      <AppPreferencesProvider>
       <ThemeProvider>
         <FinanceProvider>
           <AppLock>
@@ -114,10 +116,12 @@ export default function RootLayout() {
           </AppLock>
         </FinanceProvider>
       </ThemeProvider>
+      </AppPreferencesProvider>
     );
   }
 
   return (
+    <AppPreferencesProvider>
     <ThemeProvider>
       <FinanceProvider>
         <AppLock>
@@ -125,5 +129,6 @@ export default function RootLayout() {
         </AppLock>
       </FinanceProvider>
     </ThemeProvider>
+    </AppPreferencesProvider>
   );
 }
