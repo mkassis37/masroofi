@@ -123,7 +123,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     deleteCategory: (categoryId) => { if (DEFAULT_CATEGORIES.some((category) => category.id === categoryId) || entries.some((entry) => entry.category === categoryId)) return false; setCategories((current) => current.filter((category) => category.id !== categoryId)); return true; },
     yearlyRollovers,
     rolloverYear: (year) => { if (yearlyRollovers.some((item) => item.year === year)) return; setYearlyRollovers((current) => [...current, { id: `rollover-${year}`, year, cashBalance, bankBalance, totalBalance, createdAt: Date.now() }]); },
-    exportEntries: async () => { const header = "التاريخ,النوع,الحساب,التصنيف,البيان,المبلغ"; const rows = entries.map((entry) => `${entry.date},${entry.type === "debit" ? "مدين" : entry.type === "credit" ? "دائن" : "تحويل"},${accounts.find((account) => account.id === (entry.accountId ?? entry.account))?.name ?? entry.account},${categories.find((category) => category.id === entry.category)?.name ?? "-"},${entry.note.replace(/,/g, " ")},${entry.amount.toFixed(2)}`); await Share.share({ title: "سجل مصروفي", message: [header, ...rows].join("\n") }); },
+    exportEntries: async () => { const header = "التاريخ,النوع,الحساب,التصنيف,البيان,المبلغ"; const rows = entries.map((entry) => `${entry.date},${entry.type === "debit" ? "مدين" : entry.type === "credit" ? "دائن" : "تحويل"},${accounts.find((account) => account.id === (entry.accountId ?? entry.account))?.name ?? entry.account},${categories.find((category) => category.id === entry.category)?.name ?? "-"},${entry.note.replace(/,/g, " ")},${entry.amount.toFixed(3)}`); await Share.share({ title: "سجل مصروفي", message: [header, ...rows].join("\n") }); },
     getBackupPayload: () => JSON.stringify({ schemaVersion: BACKUP_VERSION, exportedAt: new Date().toISOString(), entries, accounts, categories, currencyCode }),
     restorePayload: (text) => { try { const parsed = JSON.parse(text) as unknown; if (!isValidBackup(parsed)) return false; const backup = parsed as { entries: FinancialEntry[]; accounts: FinancialAccount[]; categories?: ExpenseCategory[]; currencyCode?: string }; setEntries(backup.entries); setAccounts(backup.accounts); setCategories(backup.categories?.length ? backup.categories : DEFAULT_CATEGORIES); setCurrencyCode(backup.currencyCode ?? DEFAULT_CURRENCY.code); return true; } catch { return false; } },
     createBackup: async () => {
@@ -154,6 +154,6 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useFinance() { const context = useContext(FinanceContext); if (!context) throw new Error("useFinance must be used inside FinanceProvider"); return context; }
-export function formatMoney(value: number, symbol = "د.أ") { return `${value.toLocaleString("ar-SA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${symbol}`; }
+export function formatMoney(value: number, symbol = "د.أ") { return `${value.toLocaleString("ar-SA", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ${symbol}`; }
 export function typeLabel(type: EntryType) { return type === "debit" ? "مدين" : type === "credit" ? "دائن" : "تحويل"; }
 export { calculateBalances };

@@ -9,7 +9,7 @@ function escapeHtml(value: string) {
 }
 
 function money(value: number, symbol: string) {
-  return `${value.toLocaleString("ar-SA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${symbol}`;
+  return `${value.toLocaleString("ar-SA", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ${symbol}`;
 }
 
 function typeName(type: FinancialEntry["type"]) {
