@@ -2,6 +2,7 @@ export type Currency = { code: string; name: string; symbol: string };
 
 export const CURRENCIES: Currency[] = [
   { code: "JOD", name: "الدينار الأردني", symbol: "د.أ" },
+  { code: "ILS", name: "الشيكل الإسرائيلي", symbol: "₪" },
   { code: "AED", name: "الدرهم الإماراتي", symbol: "د.إ" },
   { code: "SAR", name: "الريال السعودي", symbol: "ر.س" },
   { code: "QAR", name: "الريال القطري", symbol: "ر.ق" },
