@@ -11,7 +11,7 @@ export type EntryType = "debit" | "credit" | "transfer";
 export type Account = "cash" | "bank";
 export type AccountKind = "cash" | "bank";
 export type FinancialAccount = { id: string; name: string; kind: AccountKind; openingBalance: number; createdAt: number };
-export type FinancialEntry = { id: string; type: EntryType; amount: number; account: Account; accountId?: string; fromAccountId?: string; toAccountId?: string; note: string; date: string; category?: string; createdAt: number };
+export type FinancialEntry = { id: string; type: EntryType; amount: number; account: Account; accountId?: string; fromAccountId?: string; toAccountId?: string; note: string; date: string; category?: string; currencyCode?: string; createdAt: number };
 export type ExpenseCategory = { id: string; name: string; color: string; icon: string };
 export type YearRollover = { id: string; year: number; cashBalance: number; bankBalance: number; totalBalance: number; createdAt: number };
 
@@ -92,7 +92,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       const saved = JSON.parse(raw) as Partial<{ entries: FinancialEntry[]; accounts: FinancialAccount[]; categories: ExpenseCategory[]; currencyCode: string; openingCash: number; openingBank: number; yearlyRollovers: YearRollover[] }>;
       const legacyAccounts: FinancialAccount[] = [{ id: "cash", name: "النقد", kind: "cash", openingBalance: Number(saved.openingCash) || 0, createdAt: 0 }, { ...defaultBank(), openingBalance: Number(saved.openingBank) || 0 }];
       setAccounts(saved.accounts?.length ? saved.accounts : legacyAccounts);
-      setEntries((saved.entries ?? []).map((entry) => ({ ...entry, accountId: entry.accountId ?? (entry.account === "cash" ? "cash" : "bank"), category: entry.category ?? (entry.type === "credit" ? "other" : undefined) })));
+      setEntries((saved.entries ?? []).map((entry) => ({ ...entry, accountId: entry.accountId ?? (entry.account === "cash" ? "cash" : "bank"), category: entry.category ?? (entry.type === "credit" ? "other" : undefined), currencyCode: entry.currencyCode ?? saved.currencyCode ?? DEFAULT_CURRENCY.code })));
       setCategories(saved.categories?.length ? saved.categories : DEFAULT_CATEGORIES);
       setCurrencyCode(saved.currencyCode ?? DEFAULT_CURRENCY.code);
       setYearlyRollovers(saved.yearlyRollovers ?? []);
@@ -109,7 +109,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<FinanceContextValue>(() => ({
     entries, accounts, bankAccounts, accountBalances, categories, currency: findCurrency(currencyCode), openingCash: accounts.find((a) => a.id === "cash")?.openingBalance ?? 0, openingBank: accounts.find((a) => a.id === "bank")?.openingBalance ?? 0, cashBalance, bankBalance, totalBalance, loading,
-    addEntry: (entry) => setEntries((current) => [{ ...entry, id: `${Date.now()}-${Math.random()}`, createdAt: Date.now() }, ...current]),
+    addEntry: (entry) => setEntries((current) => [{ ...entry, currencyCode: entry.currencyCode ?? currencyCode, id: `${Date.now()}-${Math.random()}`, createdAt: Date.now() }, ...current]),
     updateEntry: (id, patch) => setEntries((current) => current.map((entry) => entry.id === id ? { ...entry, ...patch } : entry)),
     deleteEntry: (id) => setEntries((current) => current.filter((entry) => entry.id !== id)),
     setOpeningBalances: (cash, bank) => setAccounts((current) => current.map((account) => account.id === "cash" ? { ...account, openingBalance: cash } : account.id === "bank" ? { ...account, openingBalance: bank } : account)),
@@ -117,13 +117,13 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     updateAccountOpeningBalance: (accountId, amount) => setAccounts((current) => current.map((account) => account.id === accountId ? { ...account, openingBalance: Math.max(0, amount) } : account)),
     renameBankAccount: (accountId, name) => { const cleanName = name.trim(); if (!cleanName) return; setAccounts((current) => current.map((account) => account.id === accountId && account.kind === "bank" ? { ...account, name: cleanName } : account)); },
     deleteBankAccount: (accountId) => { if (accountId === "bank" || entries.some((entry) => entry.accountId === accountId || entry.fromAccountId === accountId || entry.toAccountId === accountId)) return false; setAccounts((current) => current.filter((account) => account.id !== accountId)); return true; },
-    transferBetweenAccounts: (fromAccountId, toAccountId, amount, note, date) => { if (fromAccountId === toAccountId || amount <= 0 || !note.trim()) return; setEntries((current) => [{ id: `${Date.now()}-${Math.random()}`, type: "transfer", amount, account: accounts.find((account) => account.id === fromAccountId)?.kind ?? "cash", accountId: fromAccountId, fromAccountId, toAccountId, note: note.trim(), date, createdAt: Date.now() }, ...current]); },
+    transferBetweenAccounts: (fromAccountId, toAccountId, amount, note, date) => { if (fromAccountId === toAccountId || amount <= 0 || !note.trim()) return; setEntries((current) => [{ id: `${Date.now()}-${Math.random()}`, type: "transfer", amount, account: accounts.find((account) => account.id === fromAccountId)?.kind ?? "cash", accountId: fromAccountId, fromAccountId, toAccountId, note: note.trim(), date, currencyCode, createdAt: Date.now() }, ...current]); },
     setCurrency: (code) => setCurrencyCode(findCurrency(code).code),
     addCategory: (name, color, icon) => { const cleanName = name.trim(); if (!cleanName || !color || !icon || categories.some((category) => category.name === cleanName)) return; setCategories((current) => [...current, { id: `category-${Date.now()}`, name: cleanName, color, icon }]); },
     deleteCategory: (categoryId) => { if (DEFAULT_CATEGORIES.some((category) => category.id === categoryId) || entries.some((entry) => entry.category === categoryId)) return false; setCategories((current) => current.filter((category) => category.id !== categoryId)); return true; },
     yearlyRollovers,
     rolloverYear: (year) => { if (yearlyRollovers.some((item) => item.year === year)) return; setYearlyRollovers((current) => [...current, { id: `rollover-${year}`, year, cashBalance, bankBalance, totalBalance, createdAt: Date.now() }]); },
-    exportEntries: async () => { const header = "التاريخ,النوع,الحساب,التصنيف,البيان,المبلغ"; const rows = entries.map((entry) => `${entry.date},${entry.type === "debit" ? "مدين" : entry.type === "credit" ? "دائن" : "تحويل"},${accounts.find((account) => account.id === (entry.accountId ?? entry.account))?.name ?? entry.account},${categories.find((category) => category.id === entry.category)?.name ?? "-"},${entry.note.replace(/,/g, " ")},${entry.amount.toFixed(3)}`); await Share.share({ title: "سجل مصروفي", message: [header, ...rows].join("\n") }); },
+    exportEntries: async () => { const header = "التاريخ,النوع,الحساب,العملة,التصنيف,البيان,المبلغ"; const rows = entries.map((entry) => `${entry.date},${entry.type === "debit" ? "مدين" : entry.type === "credit" ? "دائن" : "تحويل"},${accounts.find((account) => account.id === (entry.accountId ?? entry.account))?.name ?? entry.account},${entry.currencyCode ?? currencyCode},${categories.find((category) => category.id === entry.category)?.name ?? "-"},${entry.note.replace(/,/g, " ")},${entry.amount.toFixed(3)}`); await Share.share({ title: "سجل مصروفي", message: [header, ...rows].join("\n") }); },
     getBackupPayload: () => JSON.stringify({ schemaVersion: BACKUP_VERSION, exportedAt: new Date().toISOString(), entries, accounts, categories, currencyCode }),
     restorePayload: (text) => { try { const parsed = JSON.parse(text) as unknown; if (!isValidBackup(parsed)) return false; const backup = parsed as { entries: FinancialEntry[]; accounts: FinancialAccount[]; categories?: ExpenseCategory[]; currencyCode?: string }; setEntries(backup.entries); setAccounts(backup.accounts); setCategories(backup.categories?.length ? backup.categories : DEFAULT_CATEGORIES); setCurrencyCode(backup.currencyCode ?? DEFAULT_CURRENCY.code); return true; } catch { return false; } },
     createBackup: async () => {
