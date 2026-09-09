@@ -4,7 +4,7 @@ import { Alert, Platform, Share } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
-import { calculateAccountBalances, calculateBalances } from "./finance-calculations";
+import { calculateAccountBalances, calculateAccountBalancesByCurrency, calculateBalances, calculateCurrencyTotals } from "./finance-calculations";
 import { DEFAULT_CURRENCY, findCurrency, type Currency } from "./currencies";
 
 export type EntryType = "debit" | "credit" | "transfer";
@@ -29,6 +29,8 @@ type FinanceContextValue = {
   accounts: FinancialAccount[];
   bankAccounts: FinancialAccount[];
   accountBalances: Record<string, number>;
+  accountBalancesByCurrency: Record<string, Record<string, number>>;
+  currencyTotals: Record<string, number>;
   openingCash: number;
   openingBank: number;
   cashBalance: number;
@@ -44,7 +46,7 @@ type FinanceContextValue = {
   updateAccountOpeningBalance: (accountId: string, amount: number) => void;
   renameBankAccount: (accountId: string, name: string) => void;
   deleteBankAccount: (accountId: string) => boolean;
-  transferBetweenAccounts: (fromAccountId: string, toAccountId: string, amount: number, note: string, date: string) => void;
+  transferBetweenAccounts: (fromAccountId: string, toAccountId: string, amount: number, note: string, date: string, currencyCode?: string) => void;
   exportEntries: () => Promise<void>;
   createBackup: () => Promise<void>;
   restoreBackup: () => Promise<void>;
@@ -101,14 +103,17 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { if (!loading) AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ entries, accounts, categories, currencyCode, yearlyRollovers })).catch(() => undefined); }, [entries, accounts, categories, currencyCode, yearlyRollovers, loading]);
 
-  const accountBalances = useMemo(() => calculateAccountBalances(entries, accounts.map(({ id, kind, openingBalance }) => ({ id, kind, openingBalance }))), [entries, accounts]);
+  const balanceAccounts = accounts.map(({ id, kind, openingBalance }) => ({ id, kind, openingBalance }));
+  const accountBalances = useMemo(() => calculateAccountBalances(entries, balanceAccounts), [entries, accounts]);
+  const accountBalancesByCurrency = useMemo(() => calculateAccountBalancesByCurrency(entries, balanceAccounts, currencyCode), [entries, accounts, currencyCode]);
+  const currencyTotals = useMemo(() => calculateCurrencyTotals(accountBalancesByCurrency), [accountBalancesByCurrency]);
   const cashBalance = accountBalances.cash ?? 0;
   const bankAccounts = accounts.filter((account) => account.kind === "bank");
   const bankBalance = bankAccounts.reduce((sum, account) => sum + (accountBalances[account.id] ?? 0), 0);
   const totalBalance = Object.values(accountBalances).reduce((sum, value) => sum + value, 0);
 
   const value = useMemo<FinanceContextValue>(() => ({
-    entries, accounts, bankAccounts, accountBalances, categories, currency: findCurrency(currencyCode), openingCash: accounts.find((a) => a.id === "cash")?.openingBalance ?? 0, openingBank: accounts.find((a) => a.id === "bank")?.openingBalance ?? 0, cashBalance, bankBalance, totalBalance, loading,
+    entries, accounts, bankAccounts, accountBalances, accountBalancesByCurrency, currencyTotals, categories, currency: findCurrency(currencyCode), openingCash: accounts.find((a) => a.id === "cash")?.openingBalance ?? 0, openingBank: accounts.find((a) => a.id === "bank")?.openingBalance ?? 0, cashBalance, bankBalance, totalBalance, loading,
     addEntry: (entry) => setEntries((current) => [{ ...entry, currencyCode: entry.currencyCode ?? currencyCode, id: `${Date.now()}-${Math.random()}`, createdAt: Date.now() }, ...current]),
     updateEntry: (id, patch) => setEntries((current) => current.map((entry) => entry.id === id ? { ...entry, ...patch } : entry)),
     deleteEntry: (id) => setEntries((current) => current.filter((entry) => entry.id !== id)),
@@ -117,7 +122,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     updateAccountOpeningBalance: (accountId, amount) => setAccounts((current) => current.map((account) => account.id === accountId ? { ...account, openingBalance: Math.max(0, amount) } : account)),
     renameBankAccount: (accountId, name) => { const cleanName = name.trim(); if (!cleanName) return; setAccounts((current) => current.map((account) => account.id === accountId && account.kind === "bank" ? { ...account, name: cleanName } : account)); },
     deleteBankAccount: (accountId) => { if (accountId === "bank" || entries.some((entry) => entry.accountId === accountId || entry.fromAccountId === accountId || entry.toAccountId === accountId)) return false; setAccounts((current) => current.filter((account) => account.id !== accountId)); return true; },
-    transferBetweenAccounts: (fromAccountId, toAccountId, amount, note, date) => { if (fromAccountId === toAccountId || amount <= 0 || !note.trim()) return; setEntries((current) => [{ id: `${Date.now()}-${Math.random()}`, type: "transfer", amount, account: accounts.find((account) => account.id === fromAccountId)?.kind ?? "cash", accountId: fromAccountId, fromAccountId, toAccountId, note: note.trim(), date, currencyCode, createdAt: Date.now() }, ...current]); },
+    transferBetweenAccounts: (fromAccountId, toAccountId, amount, note, date, transferCurrencyCode = currencyCode) => { if (fromAccountId === toAccountId || amount <= 0 || !note.trim()) return; setEntries((current) => [{ id: `${Date.now()}-${Math.random()}`, type: "transfer", amount, account: accounts.find((account) => account.id === fromAccountId)?.kind ?? "cash", accountId: fromAccountId, fromAccountId, toAccountId, note: note.trim(), date, currencyCode: transferCurrencyCode, createdAt: Date.now() }, ...current]); },
     setCurrency: (code) => setCurrencyCode(findCurrency(code).code),
     addCategory: (name, color, icon) => { const cleanName = name.trim(); if (!cleanName || !color || !icon || categories.some((category) => category.name === cleanName)) return; setCategories((current) => [...current, { id: `category-${Date.now()}`, name: cleanName, color, icon }]); },
     deleteCategory: (categoryId) => { if (DEFAULT_CATEGORIES.some((category) => category.id === categoryId) || entries.some((entry) => entry.category === categoryId)) return false; setCategories((current) => current.filter((category) => category.id !== categoryId)); return true; },
@@ -148,7 +153,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         Alert.alert("استعادة البيانات؟", "سيتم استبدال البيانات الحالية بعد التأكيد.", [{ text: "إلغاء", style: "cancel" }, { text: "استعادة", style: "destructive", onPress: () => { const restored = JSON.stringify(parsed); if (value.restorePayload(restored)) Alert.alert("تمت الاستعادة", "تم استرجاع سجلاتك بنجاح."); } }]);
       } catch { Alert.alert("تعذر الاستعادة", "تأكد من اختيار ملف JSON صالح ثم حاول مرة أخرى."); }
     },
-  }), [entries, accounts, bankAccounts, accountBalances, categories, cashBalance, bankBalance, totalBalance, loading, currencyCode, yearlyRollovers]);
+  }), [entries, accounts, bankAccounts, accountBalances, accountBalancesByCurrency, currencyTotals, categories, cashBalance, bankBalance, totalBalance, loading, currencyCode, yearlyRollovers]);
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>;
 }
