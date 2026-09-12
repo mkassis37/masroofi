@@ -2,14 +2,14 @@ import "@/global.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import "react-native-reanimated";
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { Platform } from "react-native";
 import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
 import { FinanceProvider } from "@/lib/finance-context";
-import { AppPreferencesProvider } from "@/lib/app-preferences";
+import { AppPreferencesProvider, useAppPreferences } from "@/lib/app-preferences";
 import { AppLock } from "@/components/app-lock";
 import {
   SafeAreaFrameContext,
@@ -24,6 +24,34 @@ import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-run
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
+
+function LanguageTransition({ children }: { children: React.ReactNode }) {
+  const { language } = useAppPreferences();
+  const previousLanguage = useRef(language);
+  const opacity = useSharedValue(1);
+  const translateX = useSharedValue(0);
+
+  useEffect(() => {
+    if (previousLanguage.current === language) return;
+    previousLanguage.current = language;
+    opacity.value = 0.86;
+    translateX.value = language === "en" ? -12 : 12;
+    const timing = { duration: 280, easing: Easing.out(Easing.cubic) };
+    opacity.value = withTiming(1, timing);
+    translateX.value = withTiming(0, timing);
+  }, [language, opacity, translateX]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  return <Animated.View style={[styles.languageTransition, animatedStyle]}>{children}</Animated.View>;
+}
+
+const styles = {
+  languageTransition: { flex: 1 } as const,
+};
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -109,7 +137,7 @@ export default function RootLayout() {
           <SafeAreaProvider initialMetrics={providerInitialMetrics}>
             <SafeAreaFrameContext.Provider value={frame}>
               <SafeAreaInsetsContext.Provider value={insets}>
-                {content}
+                <LanguageTransition>{content}</LanguageTransition>
               </SafeAreaInsetsContext.Provider>
             </SafeAreaFrameContext.Provider>
           </SafeAreaProvider>
@@ -125,7 +153,7 @@ export default function RootLayout() {
     <ThemeProvider>
       <FinanceProvider>
         <AppLock>
-        <SafeAreaProvider initialMetrics={providerInitialMetrics}>{content}</SafeAreaProvider>
+        <SafeAreaProvider initialMetrics={providerInitialMetrics}><LanguageTransition>{content}</LanguageTransition></SafeAreaProvider>
         </AppLock>
       </FinanceProvider>
     </ThemeProvider>
