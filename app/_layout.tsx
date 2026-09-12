@@ -4,15 +4,24 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import * as SplashScreen from "expo-splash-screen";
 import { Platform } from "react-native";
 import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
 import { FinanceProvider, useFinance } from "@/lib/finance-context";
-import { AppPreferencesProvider, useAppPreferences } from "@/lib/app-preferences";
+import {
+  AppPreferencesProvider,
+  useAppPreferences,
+} from "@/lib/app-preferences";
 import { AppLock } from "@/components/app-lock";
 import { CloudPreferencesSync } from "@/components/cloud-preferences-sync";
+import { UpdateChecker } from "@/components/update-checker";
 import {
   SafeAreaFrameContext,
   SafeAreaInsetsContext,
@@ -22,7 +31,10 @@ import {
 import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 
 import { trpc, createTRPCClient } from "@/lib/trpc";
-import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
+import {
+  initManusRuntime,
+  subscribeSafeAreaInsets,
+} from "@/lib/_core/manus-runtime";
 
 if (Platform.OS !== "web") {
   void SplashScreen.preventAutoHideAsync();
@@ -66,7 +78,11 @@ function LanguageTransition({ children }: { children: React.ReactNode }) {
     transform: [{ translateX: translateX.value }],
   }));
 
-  return <Animated.View style={[styles.languageTransition, animatedStyle]}>{children}</Animated.View>;
+  return (
+    <Animated.View style={[styles.languageTransition, animatedStyle]}>
+      {children}
+    </Animated.View>
+  );
 }
 
 const styles = {
@@ -118,7 +134,10 @@ export default function RootLayout() {
 
   // Ensure minimum 8px padding for top and bottom on mobile
   const providerInitialMetrics = useMemo(() => {
-    const metrics = initialWindowMetrics ?? { insets: initialInsets, frame: initialFrame };
+    const metrics = initialWindowMetrics ?? {
+      insets: initialInsets,
+      frame: initialFrame,
+    };
     return {
       ...metrics,
       insets: {
@@ -138,6 +157,7 @@ export default function RootLayout() {
           {/* in order for ios apps tab switching to work properly, use presentation: "fullScreenModal" for login page, whenever you decide to use presentation: "modal*/}
           <NativeSplashController />
           <CloudPreferencesSync />
+          <UpdateChecker />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="oauth/callback" />
@@ -153,32 +173,34 @@ export default function RootLayout() {
   if (shouldOverrideSafeArea) {
     return (
       <AppPreferencesProvider>
-      <ThemeProvider>
-        <FinanceProvider>
-          <AppLock>
-          <SafeAreaProvider initialMetrics={providerInitialMetrics}>
-            <SafeAreaFrameContext.Provider value={frame}>
-              <SafeAreaInsetsContext.Provider value={insets}>
-                <LanguageTransition>{content}</LanguageTransition>
-              </SafeAreaInsetsContext.Provider>
-            </SafeAreaFrameContext.Provider>
-          </SafeAreaProvider>
-          </AppLock>
-        </FinanceProvider>
-      </ThemeProvider>
+        <ThemeProvider>
+          <FinanceProvider>
+            <AppLock>
+              <SafeAreaProvider initialMetrics={providerInitialMetrics}>
+                <SafeAreaFrameContext.Provider value={frame}>
+                  <SafeAreaInsetsContext.Provider value={insets}>
+                    <LanguageTransition>{content}</LanguageTransition>
+                  </SafeAreaInsetsContext.Provider>
+                </SafeAreaFrameContext.Provider>
+              </SafeAreaProvider>
+            </AppLock>
+          </FinanceProvider>
+        </ThemeProvider>
       </AppPreferencesProvider>
     );
   }
 
   return (
     <AppPreferencesProvider>
-    <ThemeProvider>
-      <FinanceProvider>
-        <AppLock>
-        <SafeAreaProvider initialMetrics={providerInitialMetrics}><LanguageTransition>{content}</LanguageTransition></SafeAreaProvider>
-        </AppLock>
-      </FinanceProvider>
-    </ThemeProvider>
+      <ThemeProvider>
+        <FinanceProvider>
+          <AppLock>
+            <SafeAreaProvider initialMetrics={providerInitialMetrics}>
+              <LanguageTransition>{content}</LanguageTransition>
+            </SafeAreaProvider>
+          </AppLock>
+        </FinanceProvider>
+      </ThemeProvider>
     </AppPreferencesProvider>
   );
 }
