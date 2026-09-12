@@ -6,6 +6,7 @@ import { shouldShowBackupReminder, useAppPreferences } from "@/lib/app-preferenc
 import { findCurrency } from "@/lib/currencies";
 import { CurrencyDropdown } from "@/components/currency-dropdown";
 import { useI18n } from "@/lib/i18n";
+import { formatDate } from "@/lib/number-format";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -83,7 +84,7 @@ export default function HomeScreen() {
       <Pressable onPress={() => setShowAdd(true)} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}><Text style={styles.addIcon}>＋</Text><View><Text style={styles.addTitle}>{t("إضافة حركة جديدة")}</Text><Text style={styles.addSub}>{t("مدين أو دائن · نقدي أو بنكي")}</Text></View></Pressable>
       <Pressable onPress={() => setShowTransfer(true)} style={({ pressed }) => [styles.transferButton, pressed && styles.pressed]}><Text style={styles.transferIcon}>⇄</Text><View><Text style={styles.transferTitle}>{t("تحويل بين الحسابات")}</Text><Text style={styles.transferSub}>{t("اختر المصدر والوجهة وتابع الرصيد المتبقي")}</Text></View></Pressable>
       <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>{t("آخر العمليات")}</Text><Text style={styles.count}>{entries.length} {t("عملية")}</Text></View>
-      {entries.length === 0 ? <View style={styles.empty}><Text style={styles.emptyIcon}>دفتر</Text><Text style={styles.emptyTitle}>{t("لا توجد عمليات بعد")}</Text><Text style={styles.emptyText}>{t("ابدأ بتسجيل أول دخل أو مصروف لتظهر الأرصدة هنا.")}</Text></View> : entries.slice(0, 5).map((entry) => <View key={entry.id} style={styles.transaction}><View style={[styles.dot, { backgroundColor: entry.type === "debit" ? "#0F9B8E" : "#D95D55" }]} /><View style={styles.transactionInfo}><Text style={styles.transactionNote}>{entry.note}</Text><Text style={styles.transactionMeta}>{entry.date} · {accounts.find((account) => account.id === (entry.accountId ?? entry.account))?.name ?? (entry.account === "cash" ? "نقدي" : "بنكي")}</Text></View><Text style={[styles.transactionAmount, { color: entry.type === "debit" ? "#0F9B8E" : "#D95D55" }]}>{entry.type === "debit" ? "+" : "-"}{money(entry.amount)}</Text></View>)}
+      {entries.length === 0 ? <View style={styles.empty}><Text style={styles.emptyIcon}>دفتر</Text><Text style={styles.emptyTitle}>{t("لا توجد عمليات بعد")}</Text><Text style={styles.emptyText}>{t("ابدأ بتسجيل أول دخل أو مصروف لتظهر الأرصدة هنا.")}</Text></View> : entries.slice(0, 5).map((entry) => <View key={entry.id} style={styles.transaction}><View style={[styles.dot, { backgroundColor: entry.type === "debit" ? "#0F9B8E" : "#D95D55" }]} /><View style={styles.transactionInfo}><Text style={styles.transactionNote}>{entry.note}</Text><Text style={styles.transactionMeta}>{formatDate(entry.date, language, numberStyle)} · {accounts.find((account) => account.id === (entry.accountId ?? entry.account))?.name ?? (entry.account === "cash" ? "نقدي" : "بنكي")}</Text></View><Text style={[styles.transactionAmount, { color: entry.type === "debit" ? "#0F9B8E" : "#D95D55" }]}>{entry.type === "debit" ? "+" : "-"}{money(entry.amount)}</Text></View>)}
     </ScrollView><EntryModal visible={showAdd} onClose={() => setShowAdd(false)} /><TransferModal visible={showTransfer} onClose={() => setShowTransfer(false)} />
   </ScreenContainer>;
 }

@@ -8,7 +8,7 @@ import { calculateAccountBalances, calculateAccountBalancesByCurrency, calculate
 import { DEFAULT_CURRENCY, findCurrency, type Currency } from "./currencies";
 import { useAppPreferences } from "./app-preferences";
 import { translate } from "./i18n";
-import { formatNumber } from "./number-format";
+import { formatDate, formatNumber } from "./number-format";
 
 export type EntryType = "debit" | "credit" | "transfer";
 export type Account = "cash" | "bank";
@@ -133,7 +133,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     deleteCategory: (categoryId) => { if (DEFAULT_CATEGORIES.some((category) => category.id === categoryId) || entries.some((entry) => entry.category === categoryId)) return false; setCategories((current) => current.filter((category) => category.id !== categoryId)); return true; },
     yearlyRollovers,
     rolloverYear: (year) => { if (yearlyRollovers.some((item) => item.year === year)) return; setYearlyRollovers((current) => [...current, { id: `rollover-${year}`, year, cashBalance, bankBalance, totalBalance, createdAt: Date.now() }]); },
-    exportEntries: async () => { const header = language === "en" ? "Date,Type,Account,Currency,Category,Description,Amount" : "التاريخ,النوع,الحساب,العملة,التصنيف,البيان,المبلغ"; const rows = entries.map((entry) => `${entry.date},${entry.type === "debit" ? t("مدين", "Debit") : entry.type === "credit" ? t("دائن", "Credit") : t("تحويل", "Transfer")},${accounts.find((account) => account.id === (entry.accountId ?? entry.account))?.name ?? entry.account},${entry.currencyCode ?? currencyCode},${categories.find((category) => category.id === entry.category)?.name ?? "-"},${entry.note.replace(/,/g, " ")},${formatNumber(entry.amount, language, numberStyle)}`); await Share.share({ title: t("سجل مصروفي", "Masroofi ledger"), message: [header, ...rows].join("\n") }); },
+    exportEntries: async () => { const header = language === "en" ? "Date,Type,Account,Currency,Category,Description,Amount" : "التاريخ,النوع,الحساب,العملة,التصنيف,البيان,المبلغ"; const rows = entries.map((entry) => `${formatDate(entry.date, language, numberStyle)},${entry.type === "debit" ? t("مدين", "Debit") : entry.type === "credit" ? t("دائن", "Credit") : t("تحويل", "Transfer")},${accounts.find((account) => account.id === (entry.accountId ?? entry.account))?.name ?? entry.account},${entry.currencyCode ?? currencyCode},${categories.find((category) => category.id === entry.category)?.name ?? "-"},${entry.note.replace(/,/g, " ")},${formatNumber(entry.amount, language, numberStyle)}`); await Share.share({ title: t("سجل مصروفي", "Masroofi ledger"), message: [header, ...rows].join("\n") }); },
     getBackupPayload: () => JSON.stringify({ schemaVersion: BACKUP_VERSION, exportedAt: new Date().toISOString(), entries, accounts, categories, currencyCode }),
     restorePayload: (text) => { try { const parsed = JSON.parse(text) as unknown; if (!isValidBackup(parsed)) return false; const backup = parsed as { entries: FinancialEntry[]; accounts: FinancialAccount[]; categories?: ExpenseCategory[]; currencyCode?: string }; setEntries(backup.entries); setAccounts(backup.accounts); setCategories(backup.categories?.length ? backup.categories : DEFAULT_CATEGORIES); setCurrencyCode(backup.currencyCode ?? DEFAULT_CURRENCY.code); return true; } catch { return false; } },
     createBackup: async () => {
