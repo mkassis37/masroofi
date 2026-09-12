@@ -5,10 +5,11 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import * as SplashScreen from "expo-splash-screen";
 import { Platform } from "react-native";
 import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
-import { FinanceProvider } from "@/lib/finance-context";
+import { FinanceProvider, useFinance } from "@/lib/finance-context";
 import { AppPreferencesProvider, useAppPreferences } from "@/lib/app-preferences";
 import { AppLock } from "@/components/app-lock";
 import { CloudPreferencesSync } from "@/components/cloud-preferences-sync";
@@ -23,8 +24,26 @@ import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 import { trpc, createTRPCClient } from "@/lib/trpc";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
 
+if (Platform.OS !== "web") {
+  void SplashScreen.preventAutoHideAsync();
+  SplashScreen.setOptions({ duration: 700, fade: true });
+}
+
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
+
+function NativeSplashController() {
+  const { hydrated } = useAppPreferences();
+  const { loading } = useFinance();
+
+  useEffect(() => {
+    if (Platform.OS !== "web" && hydrated && !loading) {
+      SplashScreen.hideAsync().catch(() => undefined);
+    }
+  }, [hydrated, loading]);
+
+  return null;
+}
 
 function LanguageTransition({ children }: { children: React.ReactNode }) {
   const { language } = useAppPreferences();
@@ -117,6 +136,7 @@ export default function RootLayout() {
           {/* Default to hiding native headers so raw route segments don't appear (e.g. "(tabs)", "products/[id]"). */}
           {/* If a screen needs the native header, explicitly enable it and set a human title via Stack.Screen options. */}
           {/* in order for ios apps tab switching to work properly, use presentation: "fullScreenModal" for login page, whenever you decide to use presentation: "modal*/}
+          <NativeSplashController />
           <CloudPreferencesSync />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
