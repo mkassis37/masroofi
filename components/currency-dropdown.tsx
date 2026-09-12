@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { CURRENCIES, findCurrency } from "@/lib/currencies";
+import { useI18n } from "@/lib/i18n";
 
 type CurrencyUsage = Record<string, { count: number; lastUsed: number }>;
 
@@ -17,7 +18,9 @@ type CurrencyDropdownProps = {
 export function CurrencyDropdown({ value, onChange, allowAll = false, label }: CurrencyDropdownProps) {
   const [open, setOpen] = useState(false);
   const [usage, setUsage] = useState<CurrencyUsage>({});
-  const selectedLabel = value === "all" ? "كل العملات" : `${findCurrency(value).name} (${value})`;
+  const { t, currencyName } = useI18n();
+  const selectedCurrency = findCurrency(value);
+  const selectedLabel = value === "all" ? t("كل العملات", "All currencies") : `${currencyName(value, selectedCurrency.name)} (${value})`;
 
   useEffect(() => {
     AsyncStorage.getItem(USAGE_KEY).then((stored) => {
@@ -35,9 +38,9 @@ export function CurrencyDropdown({ value, onChange, allowAll = false, label }: C
       const usageA = usage[a.code] ?? { count: 0, lastUsed: 0 };
       const usageB = usage[b.code] ?? { count: 0, lastUsed: 0 };
       return usageB.count - usageA.count || usageB.lastUsed - usageA.lastUsed;
-    }).map((item) => ({ code: item.code, label: `${item.name} (${item.code})` }));
-    return allowAll ? [{ code: "all", label: "كل العملات" }, ...sorted] : sorted;
-  }, [allowAll, usage]);
+    }).map((item) => ({ code: item.code, label: `${currencyName(item.code, item.name)} (${item.code})` }));
+    return allowAll ? [{ code: "all", label: t("كل العملات", "All currencies") }, ...sorted] : sorted;
+  }, [allowAll, usage, currencyName, t]);
 
   const choose = (code: string) => {
     if (code !== "all") {
@@ -54,15 +57,15 @@ export function CurrencyDropdown({ value, onChange, allowAll = false, label }: C
 
   return <>
     {label ? <Text style={styles.label}>{label}</Text> : null}
-    <Pressable onPress={() => setOpen(true)} style={styles.trigger} accessibilityRole="button" accessibilityLabel={label ?? "اختيار العملة"}>
+    <Pressable onPress={() => setOpen(true)} style={styles.trigger} accessibilityRole="button" accessibilityLabel={label ?? t("اختيار العملة", "Choose currency")}>
       <Text style={styles.triggerText}>{selectedLabel}</Text>
       <Text style={styles.chevron}>⌄</Text>
     </Pressable>
     <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
       <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
         <View style={styles.sheet} onStartShouldSetResponder={() => true}>
-          <Text style={styles.title}>اختر العملة</Text>
-          <Text style={styles.hint}>الأكثر استخدامًا تظهر أولًا</Text>
+          <Text style={styles.title}>{t("اختر العملة", "Select currency")}</Text>
+          <Text style={styles.hint}>{t("الأكثر استخدامًا تظهر أولًا", "Most used currencies appear first")}</Text>
           <ScrollView style={styles.list}>{options.map((option) => <Pressable key={option.code} onPress={() => choose(option.code)} style={[styles.option, value === option.code && styles.optionActive]}><Text style={[styles.optionText, value === option.code && styles.optionTextActive]}>{option.label}</Text>{value === option.code ? <Text style={styles.check}>✓</Text> : null}</Pressable>)}</ScrollView>
         </View>
       </Pressable>
