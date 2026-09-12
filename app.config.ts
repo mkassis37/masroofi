@@ -38,6 +38,8 @@ const env = {
   androidPackage: bundleId,
 };
 
+const easProjectId = process.env.EAS_PROJECT_ID;
+
 const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
@@ -50,9 +52,9 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
-    "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
   android: {
     adaptiveIcon: {
@@ -86,13 +88,20 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
-    ["expo-local-authentication", { faceIDPermission: "اسمح لتطبيق مصروفي باستخدام Face ID لحماية بياناتك المالية." }],
+    [
+      "expo-local-authentication",
+      {
+        faceIDPermission:
+          "اسمح لتطبيق مصروفي باستخدام Face ID لحماية بياناتك المالية.",
+      },
+    ],
     "expo-secure-store",
     "expo-document-picker",
     [
       "expo-audio",
       {
-        microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone.",
+        microphonePermission:
+          "Allow $(PRODUCT_NAME) to access your microphone.",
       },
     ],
     [
@@ -124,6 +133,7 @@ const config: ExpoConfig = {
       },
     ],
   ],
+  extra: easProjectId ? { eas: { projectId: easProjectId } } : undefined,
   experiments: {
     typedRoutes: true,
     reactCompiler: true,
