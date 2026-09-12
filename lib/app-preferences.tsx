@@ -3,11 +3,14 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 
 export type AppLanguage = "ar" | "en";
 export type BrightnessMode = "system" | "light" | "dark";
+export type { NumberStyle } from "./number-format";
+import type { NumberStyle } from "./number-format";
 
 type Preferences = {
   language: AppLanguage;
   fontScale: number;
   brightness: BrightnessMode;
+  numberStyle: NumberStyle;
   lastBackupAt: number | null;
   reminderDays: number;
 };
@@ -16,12 +19,13 @@ type PreferencesContextValue = Preferences & {
   setLanguage: (value: AppLanguage) => void;
   setFontScale: (value: number) => void;
   setBrightness: (value: BrightnessMode) => void;
+  setNumberStyle: (value: NumberStyle) => void;
   markBackupComplete: () => void;
   snoozeBackupReminder: () => void;
 };
 
 const KEY = "masroofi-app-preferences-v1";
-const defaults: Preferences = { language: "ar", fontScale: 1, brightness: "system", lastBackupAt: null, reminderDays: 30 };
+const defaults: Preferences = { language: "ar", fontScale: 1, brightness: "system", numberStyle: "arabic-indic", lastBackupAt: null, reminderDays: 30 };
 const PreferencesContext = createContext<PreferencesContextValue | null>(null);
 
 export function AppPreferencesProvider({ children }: { children: React.ReactNode }) {
@@ -33,6 +37,7 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
     setLanguage: (language: AppLanguage) => setState((current) => ({ ...current, language })),
     setFontScale: (fontScale: number) => setState((current) => ({ ...current, fontScale })),
     setBrightness: (brightness: BrightnessMode) => setState((current) => ({ ...current, brightness })),
+    setNumberStyle: (numberStyle: NumberStyle) => setState((current) => ({ ...current, numberStyle })),
     markBackupComplete: () => setState((current) => ({ ...current, lastBackupAt: Date.now() })),
     snoozeBackupReminder: () => setState((current) => ({ ...current, lastBackupAt: Date.now() })),
   }), [state]);

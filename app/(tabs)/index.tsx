@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { useFinance, formatMoney, type EntryType } from "@/lib/finance-context";
+import { useFinance, formatMoney, formatNumber, type EntryType } from "@/lib/finance-context";
 import { shouldShowBackupReminder, useAppPreferences } from "@/lib/app-preferences";
 import { findCurrency } from "@/lib/currencies";
 import { CurrencyDropdown } from "@/components/currency-dropdown";
@@ -11,7 +11,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 function EntryModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { addEntry, accounts, categories, currency } = useFinance();
-  const { t, textAlign, language } = useI18n();
+  const { t, textAlign, language, numberStyle } = useI18n();
   const [type, setType] = useState<EntryType>("debit");
   const [accountId, setAccountId] = useState("cash");
   const [amount, setAmount] = useState("");
@@ -46,7 +46,7 @@ function EntryModal({ visible, onClose }: { visible: boolean; onClose: () => voi
 
 function TransferModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { accounts, accountBalancesByCurrency, transferBetweenAccounts, currency } = useFinance();
-  const { t, textAlign, language } = useI18n();
+  const { t, textAlign, language, numberStyle } = useI18n();
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("تحويل بين الحسابات");
   const [date, setDate] = useState(today());
@@ -58,20 +58,20 @@ function TransferModal({ visible, onClose }: { visible: boolean; onClose: () => 
     const sourceBalance = accountBalancesByCurrency[transferCurrencyCode]?.[fromId] ?? 0;
     if (!value || value <= 0) return Alert.alert(t("المبلغ غير صحيح"), t("اكتب مبلغًا أكبر من صفر."));
     if (fromId === toId) return Alert.alert(t("اختر حسابين مختلفين"), t("حساب المصدر والوجهة يجب أن يكونا مختلفين."));
-    if (value > sourceBalance) return Alert.alert(t("الرصيد غير كافٍ"), `${t("المتاح في الحساب المصدر", "Available in source account")} ${sourceBalance.toFixed(3)}.`);
+    if (value > sourceBalance) return Alert.alert(t("الرصيد غير كافٍ"), `${t("المتاح في الحساب المصدر", "Available in source account")} ${formatNumber(sourceBalance, language, numberStyle)}.`);
     transferBetweenAccounts(fromId, toId, value, note.trim() || "تحويل بين الحسابات", date || today(), transferCurrencyCode);
     setAmount(""); setDate(today()); setTransferCurrencyCode(currency.code); onClose();
   };
-  return <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}><View style={styles.modalBackdrop}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}><View style={styles.modalCard}><View style={styles.modalHeader}><Text style={[styles.modalTitle, { textAlign }]}>{t("تحويل بين الحسابات")}</Text><Pressable onPress={onClose}><Text style={styles.close}>{t("إغلاق")}</Text></Pressable></View><CurrencyDropdown label={t("العملة")} value={transferCurrencyCode} onChange={setTransferCurrencyCode} /><Text style={styles.label}>{t("من الحساب")}</Text><View style={styles.accountChoices}>{accounts.map((account) => <Pressable key={`from-${account.id}`} onPress={() => setFromId(account.id)} style={[styles.accountChoice, fromId === account.id && styles.accountChoiceActive]}><Text style={[styles.accountChoiceText, fromId === account.id && styles.accountChoiceTextActive]}>{account.name}</Text><Text style={styles.accountChoiceBalance}>{(accountBalancesByCurrency[transferCurrencyCode]?.[account.id] ?? 0).toFixed(3)}</Text></Pressable>)}</View><Text style={styles.label}>{t("إلى الحساب")}</Text><View style={styles.accountChoices}>{accounts.map((account) => <Pressable key={`to-${account.id}`} onPress={() => setToId(account.id)} style={[styles.accountChoice, toId === account.id && styles.accountChoiceActive]}><Text style={[styles.accountChoiceText, toId === account.id && styles.accountChoiceTextActive]}>{account.name}</Text></Pressable>)}</View><Text style={styles.label}>{t("المبلغ المحوّل")}</Text><TextInput value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0.000" placeholderTextColor="#98A2B3" style={styles.input} /><Text style={styles.label}>{t("البيان")}</Text><TextInput value={note} onChangeText={setNote} placeholder={t("سبب التحويل")} placeholderTextColor="#98A2B3" style={styles.input} /><Text style={styles.label}>{t("تاريخ العملية")}</Text><TextInput value={date} onChangeText={setDate} style={styles.input} /><Pressable onPress={save} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}><Text style={styles.primaryText}>{t("تأكيد التحويل")}</Text></Pressable></View></ScrollView></View></KeyboardAvoidingView></Modal>;
+  return <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}><View style={styles.modalBackdrop}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}><View style={styles.modalCard}><View style={styles.modalHeader}><Text style={[styles.modalTitle, { textAlign }]}>{t("تحويل بين الحسابات")}</Text><Pressable onPress={onClose}><Text style={styles.close}>{t("إغلاق")}</Text></Pressable></View><CurrencyDropdown label={t("العملة")} value={transferCurrencyCode} onChange={setTransferCurrencyCode} /><Text style={styles.label}>{t("من الحساب")}</Text><View style={styles.accountChoices}>{accounts.map((account) => <Pressable key={`from-${account.id}`} onPress={() => setFromId(account.id)} style={[styles.accountChoice, fromId === account.id && styles.accountChoiceActive]}><Text style={[styles.accountChoiceText, fromId === account.id && styles.accountChoiceTextActive]}>{account.name}</Text><Text style={styles.accountChoiceBalance}>{formatNumber(accountBalancesByCurrency[transferCurrencyCode]?.[account.id] ?? 0, language, numberStyle)}</Text></Pressable>)}</View><Text style={styles.label}>{t("إلى الحساب")}</Text><View style={styles.accountChoices}>{accounts.map((account) => <Pressable key={`to-${account.id}`} onPress={() => setToId(account.id)} style={[styles.accountChoice, toId === account.id && styles.accountChoiceActive]}><Text style={[styles.accountChoiceText, toId === account.id && styles.accountChoiceTextActive]}>{account.name}</Text></Pressable>)}</View><Text style={styles.label}>{t("المبلغ المحوّل")}</Text><TextInput value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0.000" placeholderTextColor="#98A2B3" style={styles.input} /><Text style={styles.label}>{t("البيان")}</Text><TextInput value={note} onChangeText={setNote} placeholder={t("سبب التحويل")} placeholderTextColor="#98A2B3" style={styles.input} /><Text style={styles.label}>{t("تاريخ العملية")}</Text><TextInput value={date} onChangeText={setDate} style={styles.input} /><Pressable onPress={save} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}><Text style={styles.primaryText}>{t("تأكيد التحويل")}</Text></Pressable></View></ScrollView></View></KeyboardAvoidingView></Modal>;
 }
 
 export default function HomeScreen() {
   const { cashBalance, bankBalance, totalBalance, entries, accounts, currency, currencyTotals, createBackup } = useFinance();
   const { lastBackupAt, reminderDays, markBackupComplete, snoozeBackupReminder } = useAppPreferences();
-  const { t, textAlign, language } = useI18n();
+  const { t, textAlign, language, numberStyle } = useI18n();
   const showBackupReminder = shouldShowBackupReminder(lastBackupAt, reminderDays);
   const handleBackup = async () => { await createBackup(); markBackupComplete(); };
-  const money = (value: number): string => formatMoney(value, currency.symbol, language);
+  const money = (value: number): string => formatMoney(value, currency.symbol, language, numberStyle);
   const [showAdd, setShowAdd] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   return <ScreenContainer className="px-5 pt-5" containerClassName="bg-background">
@@ -79,7 +79,7 @@ export default function HomeScreen() {
       <Text style={styles.eyebrow}>{t("دفتر مالي شخصي")}</Text><Text style={styles.title}>{t("ملخصك اليومي")}</Text>
       {showBackupReminder && <View style={styles.backupReminder}><Text style={styles.backupReminderTitle}>{t("تذكير النسخة الاحتياطية")}</Text><Text style={styles.backupReminderText}>{t("احفظ نسخة يدوية من سجلاتك حتى لا تضيع بياناتك.")}</Text><View style={styles.reminderActions}><Pressable onPress={handleBackup} style={styles.reminderPrimary}><Text style={styles.reminderPrimaryText}>{t("إنشاء نسخة الآن")}</Text></Pressable><Pressable onPress={snoozeBackupReminder} style={styles.reminderSecondary}><Text style={styles.reminderSecondaryText}>{t("تذكيري لاحقًا")}</Text></Pressable></View></View>}
       <View style={styles.totalCard}><Text style={styles.totalCaption}>{t("الرصيد الإجمالي")}</Text><Text style={styles.totalValue}>{money(totalBalance)}</Text><Text style={styles.totalHint}>{t("النقد + البنك")}</Text></View>
-      <View style={styles.balanceRow}><View style={[styles.smallCard, { borderTopColor: "#0F9B8E" }]}><Text style={styles.smallLabel}>{t("النقد المتوفر")}</Text><Text style={styles.smallValue}>{money(cashBalance)}</Text></View><View style={[styles.smallCard, { borderTopColor: "#17365D" }]}><Text style={styles.smallLabel}>{t("في البنك")}</Text><Text style={styles.smallValue}>{money(bankBalance)}</Text></View></View><View style={styles.currencySummary}><Text style={styles.currencySummaryTitle}>{t("أرصدة العملات")}</Text>{Object.entries(currencyTotals).filter(([, value]) => value !== 0).map(([code, value]) => <View key={code} style={styles.currencyBalance}><Text style={styles.currencyCode}>{code}</Text><Text style={styles.currencyBalanceValue}>{formatMoney(value, findCurrency(code).symbol, language)}</Text></View>)}</View>
+      <View style={styles.balanceRow}><View style={[styles.smallCard, { borderTopColor: "#0F9B8E" }]}><Text style={styles.smallLabel}>{t("النقد المتوفر")}</Text><Text style={styles.smallValue}>{money(cashBalance)}</Text></View><View style={[styles.smallCard, { borderTopColor: "#17365D" }]}><Text style={styles.smallLabel}>{t("في البنك")}</Text><Text style={styles.smallValue}>{money(bankBalance)}</Text></View></View><View style={styles.currencySummary}><Text style={styles.currencySummaryTitle}>{t("أرصدة العملات")}</Text>{Object.entries(currencyTotals).filter(([, value]) => value !== 0).map(([code, value]) => <View key={code} style={styles.currencyBalance}><Text style={styles.currencyCode}>{code}</Text><Text style={styles.currencyBalanceValue}>{formatMoney(value, findCurrency(code).symbol, language, numberStyle)}</Text></View>)}</View>
       <Pressable onPress={() => setShowAdd(true)} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}><Text style={styles.addIcon}>＋</Text><View><Text style={styles.addTitle}>{t("إضافة حركة جديدة")}</Text><Text style={styles.addSub}>{t("مدين أو دائن · نقدي أو بنكي")}</Text></View></Pressable>
       <Pressable onPress={() => setShowTransfer(true)} style={({ pressed }) => [styles.transferButton, pressed && styles.pressed]}><Text style={styles.transferIcon}>⇄</Text><View><Text style={styles.transferTitle}>{t("تحويل بين الحسابات")}</Text><Text style={styles.transferSub}>{t("اختر المصدر والوجهة وتابع الرصيد المتبقي")}</Text></View></Pressable>
       <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>{t("آخر العمليات")}</Text><Text style={styles.count}>{entries.length} {t("عملية")}</Text></View>

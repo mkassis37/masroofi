@@ -109,13 +109,14 @@ export function localizedCurrencyName(code: string, arabicName: string, language
 }
 
 export function useI18n() {
-  const { language } = useAppPreferences();
+  const { language, numberStyle } = useAppPreferences();
   return useMemo(() => ({
     language,
+    numberStyle,
     isEn: language === "en",
     direction: language === "en" ? "ltr" as const : "rtl" as const,
     textAlign: language === "en" ? "left" as const : "right" as const,
     t: (ar: string, en?: string) => translate(ar, language, en),
     currencyName: (code: string, arabicName: string) => localizedCurrencyName(code, arabicName, language),
-  }), [language]);
+  }), [language, numberStyle]);
 }
