@@ -13,34 +13,52 @@ type Preferences = {
   numberStyle: NumberStyle;
   lastBackupAt: number | null;
   reminderDays: number;
+  updatedAt: number;
 };
 
 type PreferencesContextValue = Preferences & {
+  hydrated: boolean;
   setLanguage: (value: AppLanguage) => void;
   setFontScale: (value: number) => void;
   setBrightness: (value: BrightnessMode) => void;
   setNumberStyle: (value: NumberStyle) => void;
+  applySyncedPreferences: (language: AppLanguage, numberStyle: NumberStyle, updatedAt: number) => void;
   markBackupComplete: () => void;
   snoozeBackupReminder: () => void;
 };
 
 const KEY = "masroofi-app-preferences-v1";
-const defaults: Preferences = { language: "ar", fontScale: 1, brightness: "system", numberStyle: "arabic-indic", lastBackupAt: null, reminderDays: 30 };
+const defaults: Preferences = { language: "ar", fontScale: 1, brightness: "system", numberStyle: "arabic-indic", lastBackupAt: null, reminderDays: 30, updatedAt: 0 };
 const PreferencesContext = createContext<PreferencesContextValue | null>(null);
 
 export function AppPreferencesProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<Preferences>(defaults);
-  useEffect(() => { AsyncStorage.getItem(KEY).then((raw) => raw && setState({ ...defaults, ...JSON.parse(raw) })).catch(() => undefined); }, []);
-  useEffect(() => { AsyncStorage.setItem(KEY, JSON.stringify(state)).catch(() => undefined); }, [state]);
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem(KEY).then((raw) => {
+      if (!raw) return;
+      try {
+        const saved = JSON.parse(raw) as Partial<Preferences>;
+        setState({ ...defaults, ...saved });
+      } catch {
+        // Ignore malformed local preferences and keep safe defaults.
+      }
+    }).catch(() => undefined).finally(() => setHydrated(true));
+  }, []);
+  useEffect(() => { if (hydrated) AsyncStorage.setItem(KEY, JSON.stringify(state)).catch(() => undefined); }, [hydrated, state]);
+  const updateLocal = <T extends Partial<Preferences>>(patch: T) => setState((current) => ({ ...current, ...patch }));
+  const touchSynced = <T extends Partial<Preferences>>(patch: T) => setState((current) => ({ ...current, ...patch, updatedAt: Date.now() }));
   const value = useMemo(() => ({
     ...state,
-    setLanguage: (language: AppLanguage) => setState((current) => ({ ...current, language })),
-    setFontScale: (fontScale: number) => setState((current) => ({ ...current, fontScale })),
-    setBrightness: (brightness: BrightnessMode) => setState((current) => ({ ...current, brightness })),
-    setNumberStyle: (numberStyle: NumberStyle) => setState((current) => ({ ...current, numberStyle })),
+    hydrated,
+    setLanguage: (language: AppLanguage) => state.language === language ? undefined : touchSynced({ language }),
+    setFontScale: (fontScale: number) => updateLocal({ fontScale }),
+    setBrightness: (brightness: BrightnessMode) => updateLocal({ brightness }),
+    setNumberStyle: (numberStyle: NumberStyle) => state.numberStyle === numberStyle ? undefined : touchSynced({ numberStyle }),
+    applySyncedPreferences: (language: AppLanguage, numberStyle: NumberStyle, updatedAt: number) => setState((current) => ({ ...current, language, numberStyle, updatedAt })),
     markBackupComplete: () => setState((current) => ({ ...current, lastBackupAt: Date.now() })),
     snoozeBackupReminder: () => setState((current) => ({ ...current, lastBackupAt: Date.now() })),
-  }), [state]);
+  }), [hydrated, state]);
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
 }
 

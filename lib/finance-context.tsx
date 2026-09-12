@@ -84,7 +84,7 @@ function isValidBackup(value: unknown): value is { entries: FinancialEntry[]; ac
 }
 
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
-  const { language, numberStyle } = useAppPreferences();
+  const { language, numberStyle, updatedAt: preferencesUpdatedAt } = useAppPreferences();
   const t = (ar: string, en?: string) => translate(ar, language, en);
   const [entries, setEntries] = useState<FinancialEntry[]>([]);
   const [accounts, setAccounts] = useState<FinancialAccount[]>([{ id: "cash", name: "النقد", kind: "cash", openingBalance: 0, createdAt: 0 }, defaultBank()]);
@@ -134,10 +134,10 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     yearlyRollovers,
     rolloverYear: (year) => { if (yearlyRollovers.some((item) => item.year === year)) return; setYearlyRollovers((current) => [...current, { id: `rollover-${year}`, year, cashBalance, bankBalance, totalBalance, createdAt: Date.now() }]); },
     exportEntries: async () => { const header = language === "en" ? "Date,Type,Account,Currency,Category,Description,Amount" : "التاريخ,النوع,الحساب,العملة,التصنيف,البيان,المبلغ"; const rows = entries.map((entry) => `${formatDate(entry.date, language, numberStyle)},${entry.type === "debit" ? t("مدين", "Debit") : entry.type === "credit" ? t("دائن", "Credit") : t("تحويل", "Transfer")},${accounts.find((account) => account.id === (entry.accountId ?? entry.account))?.name ?? entry.account},${entry.currencyCode ?? currencyCode},${categories.find((category) => category.id === entry.category)?.name ?? "-"},${entry.note.replace(/,/g, " ")},${formatNumber(entry.amount, language, numberStyle)}`); await Share.share({ title: t("سجل مصروفي", "Masroofi ledger"), message: [header, ...rows].join("\n") }); },
-    getBackupPayload: () => JSON.stringify({ schemaVersion: BACKUP_VERSION, exportedAt: new Date().toISOString(), entries, accounts, categories, currencyCode }),
+    getBackupPayload: () => JSON.stringify({ schemaVersion: BACKUP_VERSION, exportedAt: new Date().toISOString(), entries, accounts, categories, currencyCode, preferences: { language, numberStyle, updatedAt: preferencesUpdatedAt } }),
     restorePayload: (text) => { try { const parsed = JSON.parse(text) as unknown; if (!isValidBackup(parsed)) return false; const backup = parsed as { entries: FinancialEntry[]; accounts: FinancialAccount[]; categories?: ExpenseCategory[]; currencyCode?: string }; setEntries(backup.entries); setAccounts(backup.accounts); setCategories(backup.categories?.length ? backup.categories : DEFAULT_CATEGORIES); setCurrencyCode(backup.currencyCode ?? DEFAULT_CURRENCY.code); return true; } catch { return false; } },
     createBackup: async () => {
-      const payload = JSON.stringify({ schemaVersion: BACKUP_VERSION, exportedAt: new Date().toISOString(), entries, accounts, categories, currencyCode }, null, 2);
+      const payload = JSON.stringify({ schemaVersion: BACKUP_VERSION, exportedAt: new Date().toISOString(), entries, accounts, categories, currencyCode, preferences: { language, numberStyle, updatedAt: preferencesUpdatedAt } }, null, 2);
       try {
         if (Platform.OS === "web") { await Share.share({ title: t("نسخة مصروفي الاحتياطية", "Masroofi backup"), message: payload }); return; }
         const uri = `${FileSystem.cacheDirectory}masroofi-backup-${new Date().toISOString().slice(0, 10)}.json`;
@@ -148,7 +148,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     },
     restoreBackup: async () => {
       try {
-        await AsyncStorage.setItem(`${STORAGE_KEY}-pre-restore`, JSON.stringify({ schemaVersion: BACKUP_VERSION, exportedAt: new Date().toISOString(), entries, accounts, categories, currencyCode }));
+        await AsyncStorage.setItem(`${STORAGE_KEY}-pre-restore`, JSON.stringify({ schemaVersion: BACKUP_VERSION, exportedAt: new Date().toISOString(), entries, accounts, categories, currencyCode, preferences: { language, numberStyle, updatedAt: preferencesUpdatedAt } }));
         const result = await DocumentPicker.getDocumentAsync({ type: "application/json", copyToCacheDirectory: true });
         if (result.canceled || !result.assets?.[0]) return;
         const asset = result.assets[0];
@@ -158,7 +158,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         Alert.alert(t("استعادة البيانات؟", "Restore data?"), t("سيتم استبدال البيانات الحالية بعد التأكيد.", "Current data will be replaced after confirmation."), [{ text: t("إلغاء", "Cancel"), style: "cancel" }, { text: t("استعادة", "Restore"), style: "destructive", onPress: () => { const restored = JSON.stringify(parsed); if (value.restorePayload(restored)) Alert.alert(t("تمت الاستعادة", "Restored"), t("تم استرجاع سجلاتك بنجاح.", "Your records were restored successfully.")); } }]);
       } catch { Alert.alert(t("تعذر الاستعادة", "Restore failed"), t("تأكد من اختيار ملف JSON صالح ثم حاول مرة أخرى.", "Choose a valid JSON file and try again.")); }
     },
-  }), [entries, accounts, bankAccounts, accountBalances, accountBalancesByCurrency, currencyTotals, categories, cashBalance, bankBalance, totalBalance, loading, currencyCode, yearlyRollovers, language, numberStyle]);
+  }), [entries, accounts, bankAccounts, accountBalances, accountBalancesByCurrency, currencyTotals, categories, cashBalance, bankBalance, totalBalance, loading, currencyCode, yearlyRollovers, language, numberStyle, preferencesUpdatedAt]);
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>;
 }

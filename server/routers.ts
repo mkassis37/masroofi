@@ -24,10 +24,22 @@ export const appRouter = router({
       const row = await db.getFinanceCloud(ctx.user.id);
       return row ? { payload: row.payload, updatedAt: row.updatedAt } : null;
     }),
-    save: protectedProcedure.input(z.object({ payload: z.string().min(2).max(1000000) })).mutation(async ({ ctx, input }) => {
-      await db.saveFinanceCloud(ctx.user.id, input.payload);
-      return { success: true } as const;
-    }),
+      save: protectedProcedure.input(z.object({ payload: z.string().min(2).max(1000000) })).mutation(async ({ ctx, input }) => {
+        await db.saveFinanceCloud(ctx.user.id, input.payload);
+        return { success: true } as const;
+      }),
+      getPreferences: protectedProcedure.query(async ({ ctx }) => {
+        return (await db.getFinanceCloudPreferences(ctx.user.id)) ?? null;
+      }),
+      savePreferences: protectedProcedure.input(z.object({
+        language: z.enum(["ar", "en"]),
+        numberStyle: z.enum(["arabic-indic", "western"]),
+        updatedAt: z.number().int().nonnegative(),
+        expectedUpdatedAt: z.number().int().nonnegative().nullable().optional(),
+      })).mutation(async ({ ctx, input }) => {
+        const result = await db.saveFinanceCloudPreferences(ctx.user.id, { language: input.language, numberStyle: input.numberStyle, updatedAt: input.updatedAt }, input.expectedUpdatedAt ?? 0);
+        return { success: result.saved, conflict: result.conflict, updatedAt: result.current.updatedAt, current: result.conflict ? result.current : null } as const;
+      }),
   }),
 });
 

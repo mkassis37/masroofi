@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, financeCloud } from "../drizzle/schema";
 import { ENV } from "./_core/env";
+import { isCloudPreferenceSnapshot, type CloudPreferenceSnapshot } from "../lib/cloud-preferences";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -94,6 +95,38 @@ export async function getFinanceCloud(userId: number) {
   if (!db) return undefined;
   const result = await db.select().from(financeCloud).where(eq(financeCloud.userId, userId)).limit(1);
   return result[0];
+}
+
+export type CloudPreferences = CloudPreferenceSnapshot;
+
+function parseCloudPayload(payload: string) {
+  try {
+    const parsed = JSON.parse(payload) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function parseCloudPreferences(value: unknown): CloudPreferences | undefined {
+  return isCloudPreferenceSnapshot(value) ? value : undefined;
+}
+
+export async function getFinanceCloudPreferences(userId: number) {
+  const row = await getFinanceCloud(userId);
+  if (!row) return undefined;
+  return parseCloudPreferences(parseCloudPayload(row.payload).preferences);
+}
+
+export async function saveFinanceCloudPreferences(userId: number, preferences: CloudPreferences, expectedUpdatedAt: number) {
+  const currentPreferences = await getFinanceCloudPreferences(userId);
+  if (currentPreferences && currentPreferences.updatedAt > expectedUpdatedAt) {
+    return { saved: false as const, conflict: true as const, current: currentPreferences };
+  }
+  const row = await getFinanceCloud(userId);
+  const currentPayload = row ? parseCloudPayload(row.payload) : {};
+  await saveFinanceCloud(userId, JSON.stringify({ ...currentPayload, preferences }));
+  return { saved: true as const, conflict: false as const, current: preferences };
 }
 
 export async function saveFinanceCloud(userId: number, payload: string) {
