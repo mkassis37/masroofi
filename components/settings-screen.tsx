@@ -71,8 +71,10 @@ export default function SettingsScreen() {
     setBrightness,
     setNumberStyle,
     markBackupComplete,
-    autoUpdateChecks,
-    setAutoUpdateChecks,
+    autoGitHubChecks,
+    setAutoGitHubChecks,
+    autoOtaChecks,
+    setAutoOtaChecks,
   } = useAppPreferences();
   const { setColorScheme } = useThemeContext();
   const [panel, setPanel] = useState<Panel>(null);
@@ -453,8 +455,10 @@ export default function SettingsScreen() {
                 <OtaUpdatePanel
                   t={t}
                   scale={scale}
-                  autoUpdateChecks={autoUpdateChecks}
-                  setAutoUpdateChecks={setAutoUpdateChecks}
+                  autoGitHubChecks={autoGitHubChecks}
+                  setAutoGitHubChecks={setAutoGitHubChecks}
+                  autoOtaChecks={autoOtaChecks}
+                  setAutoOtaChecks={setAutoOtaChecks}
                 />
               )}{" "}
               {panel === "about" && (

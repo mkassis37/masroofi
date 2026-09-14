@@ -19,7 +19,8 @@ type Preferences = {
   numberStyle: NumberStyle;
   lastBackupAt: number | null;
   reminderDays: number;
-  autoUpdateChecks: boolean;
+  autoGitHubChecks: boolean;
+  autoOtaChecks: boolean;
   updatedAt: number;
 };
 
@@ -36,7 +37,8 @@ type PreferencesContextValue = Preferences & {
   ) => void;
   markBackupComplete: () => void;
   snoozeBackupReminder: () => void;
-  setAutoUpdateChecks: (value: boolean) => void;
+  setAutoGitHubChecks: (value: boolean) => void;
+  setAutoOtaChecks: (value: boolean) => void;
 };
 
 const KEY = "masroofi-app-preferences-v1";
@@ -47,7 +49,8 @@ const defaults: Preferences = {
   numberStyle: "arabic-indic",
   lastBackupAt: null,
   reminderDays: 30,
-  autoUpdateChecks: true,
+  autoGitHubChecks: true,
+  autoOtaChecks: true,
   updatedAt: 0,
 };
 const PreferencesContext = createContext<PreferencesContextValue | null>(null);
@@ -64,8 +67,25 @@ export function AppPreferencesProvider({
       .then((raw) => {
         if (!raw) return;
         try {
-          const saved = JSON.parse(raw) as Partial<Preferences>;
-          setState({ ...defaults, ...saved });
+          const saved = JSON.parse(raw) as Partial<Preferences> & {
+            autoUpdateChecks?: boolean;
+          };
+          const legacyAutoUpdateChecks =
+            typeof saved.autoUpdateChecks === "boolean"
+              ? saved.autoUpdateChecks
+              : true;
+          setState({
+            ...defaults,
+            ...saved,
+            autoGitHubChecks:
+              typeof saved.autoGitHubChecks === "boolean"
+                ? saved.autoGitHubChecks
+                : legacyAutoUpdateChecks,
+            autoOtaChecks:
+              typeof saved.autoOtaChecks === "boolean"
+                ? saved.autoOtaChecks
+                : legacyAutoUpdateChecks,
+          });
         } catch {
           // Ignore malformed local preferences and keep safe defaults.
         }
@@ -109,8 +129,10 @@ export function AppPreferencesProvider({
         setState((current) => ({ ...current, lastBackupAt: Date.now() })),
       snoozeBackupReminder: () =>
         setState((current) => ({ ...current, lastBackupAt: Date.now() })),
-      setAutoUpdateChecks: (autoUpdateChecks: boolean) =>
-        updateLocal({ autoUpdateChecks }),
+      setAutoGitHubChecks: (autoGitHubChecks: boolean) =>
+        updateLocal({ autoGitHubChecks }),
+      setAutoOtaChecks: (autoOtaChecks: boolean) =>
+        updateLocal({ autoOtaChecks }),
     }),
     [hydrated, state],
   );

@@ -9,7 +9,7 @@ const CHECK_INTERVAL_MS = 12 * 60 * 60 * 1000;
 
 export function OtaUpdateController() {
   const { language } = useI18n();
-  const { autoUpdateChecks } = useAppPreferences();
+  const { autoOtaChecks } = useAppPreferences();
   const isChecking = useRef(false);
   const lastCheckAt = useRef(0);
   const alertedUpdateId = useRef<string | null>(null);
@@ -18,7 +18,7 @@ export function OtaUpdateController() {
     const checkForOtaUpdate = async () => {
       if (
         Platform.OS === "web" ||
-        !autoUpdateChecks ||
+        !autoOtaChecks ||
         !Updates.isEnabled ||
         isChecking.current ||
         Date.now() - lastCheckAt.current < CHECK_INTERVAL_MS
@@ -82,7 +82,7 @@ export function OtaUpdateController() {
     });
 
     return () => subscription.remove();
-  }, [language, autoUpdateChecks]);
+  }, [language, autoOtaChecks]);
 
   return null;
 }

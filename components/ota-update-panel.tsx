@@ -15,13 +15,17 @@ type Translator = (ar: string, en: string) => string;
 export function OtaUpdatePanel({
   t,
   scale,
-  autoUpdateChecks,
-  setAutoUpdateChecks,
+  autoGitHubChecks,
+  setAutoGitHubChecks,
+  autoOtaChecks,
+  setAutoOtaChecks,
 }: {
   t: Translator;
   scale: number;
-  autoUpdateChecks: boolean;
-  setAutoUpdateChecks: (value: boolean) => void;
+  autoGitHubChecks: boolean;
+  setAutoGitHubChecks: (value: boolean) => void;
+  autoOtaChecks: boolean;
+  setAutoOtaChecks: (value: boolean) => void;
 }) {
   const [checking, setChecking] = useState(false);
   const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
@@ -149,7 +153,7 @@ export function OtaUpdatePanel({
               fontSize: 14 * scale,
             }}
           >
-            {t("الفحص التلقائي", "Automatic checks")}
+            {t("فحص تحديثات GitHub تلقائيًا", "Automatic GitHub checks")}
           </Text>
           <Text
             style={{
@@ -161,12 +165,51 @@ export function OtaUpdatePanel({
             }}
           >
             {t(
-              "يفحص تحديثات GitHub وOTA عند تشغيل التطبيق وعودته للمقدمة.",
-              "Check GitHub and OTA updates when the app starts or returns to the foreground.",
+              "افحص إصدارات APK الجديدة عند تشغيل التطبيق وعودته للمقدمة.",
+              "Check for new APK releases when the app starts or returns to the foreground.",
             )}
           </Text>
         </View>
-        <Switch value={autoUpdateChecks} onValueChange={setAutoUpdateChecks} />
+        <Switch value={autoGitHubChecks} onValueChange={setAutoGitHubChecks} />
+      </View>
+      <View
+        style={{
+          flexDirection: "row-reverse",
+          justifyContent: "space-between",
+          alignItems: "center",
+          backgroundColor: "#FFFFFF",
+          borderRadius: 12,
+          padding: 13,
+          marginBottom: 9,
+        }}
+      >
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{
+              color: "#17212B",
+              fontWeight: "800",
+              textAlign: "right",
+              fontSize: 14 * scale,
+            }}
+          >
+            {t("فحص تحديثات OTA تلقائيًا", "Automatic OTA checks")}
+          </Text>
+          <Text
+            style={{
+              color: "#667085",
+              textAlign: "right",
+              lineHeight: 20,
+              marginTop: 3,
+              fontSize: 12 * scale,
+            }}
+          >
+            {t(
+              "افحص تحديثات الأكواد والأصول غير الأصلية تلقائيًا.",
+              "Check JavaScript and asset updates automatically.",
+            )}
+          </Text>
+        </View>
+        <Switch value={autoOtaChecks} onValueChange={setAutoOtaChecks} />
       </View>
       <View
         style={{

@@ -24,7 +24,7 @@ async function openUpdateLink(update: AvailableUpdate) {
 
 export function UpdateChecker() {
   const { language } = useI18n();
-  const { autoUpdateChecks } = useAppPreferences();
+  const { autoGitHubChecks } = useAppPreferences();
   const lastCheckAt = useRef(0);
   const isChecking = useRef(false);
   const alertedVersion = useRef<string | null>(null);
@@ -33,7 +33,7 @@ export function UpdateChecker() {
     const checkForUpdate = async () => {
       if (
         Platform.OS === "web" ||
-        !autoUpdateChecks ||
+        !autoGitHubChecks ||
         isChecking.current ||
         Date.now() - lastCheckAt.current < CHECK_INTERVAL_MS
       )
@@ -82,7 +82,7 @@ export function UpdateChecker() {
     });
 
     return () => subscription.remove();
-  }, [language, autoUpdateChecks]);
+  }, [language, autoGitHubChecks]);
 
   if (Platform.OS === "web") return null;
   return null;
