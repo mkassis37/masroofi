@@ -88,6 +88,9 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
+    "expo-asset",
+    "expo-font",
+    "expo-web-browser",
     [
       "expo-local-authentication",
       {

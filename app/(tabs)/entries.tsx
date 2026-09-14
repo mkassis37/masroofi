@@ -9,8 +9,8 @@ import { useI18n } from "@/lib/i18n";
 import { formatDate } from "@/lib/number-format";
 
 function EditEntryModal({ entry, onClose }: { entry: FinancialEntry | null; onClose: () => void }) {
-  const { updateEntry, accounts, categories } = useFinance();
-  const { t, language, numberStyle } = useI18n();
+  const { updateEntry, categories } = useFinance();
+  const { t } = useI18n();
   const [amount, setAmount] = useState(entry ? String(entry.amount) : "");
   const [note, setNote] = useState(entry?.note ?? "");
   const [date, setDate] = useState(entry?.date ?? "");
@@ -34,7 +34,6 @@ export default function EntriesScreen() {
   const [currencyFilter, setCurrencyFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editing, setEditing] = useState<FinancialEntry | null>(null);
-  const money = (value: number): string => formatMoney(value, currency.symbol, language, numberStyle);
   const filtered = useMemo(() => entries.filter((entry) => (filter === "all" || entry.type === filter) && (currencyFilter === "all" || (entry.currencyCode ?? currency.code) === currencyFilter) && `${entry.note} ${entry.date} ${entry.category ?? ""} ${entry.currencyCode ?? currency.code}`.toLocaleLowerCase().includes(query.toLocaleLowerCase())), [entries, filter, currencyFilter, currency.code, query]);
   const remove = (id: string) => Alert.alert(t("حذف العملية؟"), t("لن يمكن التراجع عن هذا الإجراء."), [{ text: t("إلغاء", "Cancel"), style: "cancel" }, { text: t("حذف", "Delete"), style: "destructive", onPress: () => deleteEntry(id) }]);
   const toggleSelected = (id: string) => setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);

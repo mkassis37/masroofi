@@ -12,7 +12,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 function EntryModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { addEntry, accounts, categories, currency } = useFinance();
-  const { t, textAlign, language, numberStyle } = useI18n();
+  const { t, textAlign } = useI18n();
   const [type, setType] = useState<EntryType>("debit");
   const [accountId, setAccountId] = useState("cash");
   const [amount, setAmount] = useState("");
@@ -69,7 +69,7 @@ function TransferModal({ visible, onClose }: { visible: boolean; onClose: () => 
 export default function HomeScreen() {
   const { cashBalance, bankBalance, totalBalance, entries, accounts, currency, currencyTotals, createBackup } = useFinance();
   const { lastBackupAt, reminderDays, markBackupComplete, snoozeBackupReminder } = useAppPreferences();
-  const { t, textAlign, language, numberStyle } = useI18n();
+  const { t, language, numberStyle } = useI18n();
   const showBackupReminder = shouldShowBackupReminder(lastBackupAt, reminderDays);
   const handleBackup = async () => { await createBackup(); markBackupComplete(); };
   const money = (value: number): string => formatMoney(value, currency.symbol, language, numberStyle);

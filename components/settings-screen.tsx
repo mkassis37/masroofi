@@ -19,7 +19,6 @@ import { CURRENCIES } from "@/lib/currencies";
 import {
   useAppPreferences,
   type BrightnessMode,
-  type NumberStyle,
 } from "@/lib/app-preferences";
 import { useThemeContext } from "@/lib/theme-provider";
 import { localizedCurrencyName } from "@/lib/i18n";
@@ -522,7 +521,6 @@ function SettingTile({
 
 function AccountsPanel(props: any) {
   const {
-    accounts,
     bankAccounts,
     accountBalances,
     cash,
@@ -554,7 +552,6 @@ function AccountsPanel(props: any) {
     language,
     numberStyle,
     t,
-    scale,
   } = props;
   return (
     <View>

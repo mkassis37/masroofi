@@ -230,3 +230,7 @@
 
 - [x] تعديل Workflow ليبني APK تجريبيًا عند كل push إلى main ويرفعه كـ Artifact.
 - [x] إبقاء الإصدار الرسمي عبر GitHub Release عند دفع tag والتحقق من Workflow ثم رفعه.
+
+- [x] تدقيق كامل للكود وفحوص TypeScript والاختبارات وExpo config وGitHub Actions.
+- [x] إصلاح أي أخطاء تمنع بناء أو تثبيت APK وتجربة Workflow.
+- [x] رفع الإصلاحات إلى مستودع GitHub وحفظ نسخة مستقرة قابلة للمراجعة.

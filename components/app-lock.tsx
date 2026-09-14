@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
@@ -27,8 +27,8 @@ export function AppLock({ children }: { children: React.ReactNode }) {
   const { language } = useAppPreferences();
   const [locked, setLocked] = useState(false);
   const backgroundAt = useRef<number | null>(null);
-  const check = async () => { if (await getLockEnabled()) setLocked(!(await authenticate(language))); };
-  useEffect(() => { check().catch(() => undefined); const sub = AppState.addEventListener("change", (state) => { if (state === "background") backgroundAt.current = Date.now(); if (state === "active" && backgroundAt.current && Date.now() - backgroundAt.current > 60_000) check().catch(() => undefined); }); return () => sub.remove(); }, []);
+  const check = useCallback(async () => { if (await getLockEnabled()) setLocked(!(await authenticate(language))); }, [language]);
+  useEffect(() => { check().catch(() => undefined); const sub = AppState.addEventListener("change", (state) => { if (state === "background") backgroundAt.current = Date.now(); if (state === "active" && backgroundAt.current && Date.now() - backgroundAt.current > 60_000) check().catch(() => undefined); }); return () => sub.remove(); }, [check]);
   if (!locked) return <>{children}</>;
   return <View style={styles.container}><Text style={styles.icon}>م</Text><Text style={styles.title}>{language === "en" ? "Masroofi is locked" : "مصروفي مقفل"}</Text><Text style={styles.text}>{language === "en" ? "Your financial data is protected. Use biometrics or your device passcode to continue." : "بياناتك المالية محمية. استخدم بصمة الإصبع أو رمز الجهاز للمتابعة."}</Text><Pressable onPress={() => check().catch(() => undefined)} style={styles.button}><Text style={styles.buttonText}>{language === "en" ? "Unlock app" : "فتح التطبيق"}</Text></Pressable></View>;
 }

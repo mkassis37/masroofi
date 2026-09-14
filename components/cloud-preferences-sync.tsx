@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Alert } from "react-native";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -16,7 +16,8 @@ export function CloudPreferencesSync() {
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
-  const save = trpc.cloud.savePreferences.useMutation();
+  const { data: remoteData, isFetched: remoteIsFetched, refetch: refetchRemote } = remote;
+  const { mutate: savePreferences } = trpc.cloud.savePreferences.useMutation();
   const initialSyncResolved = useRef(false);
   const promptKey = useRef<string | null>(null);
   const lastUploaded = useRef<number | null>(null);
@@ -29,15 +30,15 @@ export function CloudPreferencesSync() {
     }
   }, [isAuthenticated]);
 
-  const saveSnapshot = (nextUpdatedAt: number, nextLanguage = language, nextNumberStyle = numberStyle) => {
+  const saveSnapshot = useCallback((nextUpdatedAt: number, nextLanguage = language, nextNumberStyle = numberStyle) => {
     if (lastUploaded.current === nextUpdatedAt) return;
     lastUploaded.current = nextUpdatedAt;
-    save.mutate({ language: nextLanguage, numberStyle: nextNumberStyle, updatedAt: nextUpdatedAt, expectedUpdatedAt: remote.data?.updatedAt ?? 0 }, { onSuccess: (result) => { if (result.conflict) { initialSyncResolved.current = false; promptKey.current = null; remote.refetch().catch(() => undefined); } } });
-  };
+    savePreferences({ language: nextLanguage, numberStyle: nextNumberStyle, updatedAt: nextUpdatedAt, expectedUpdatedAt: remoteData?.updatedAt ?? 0 }, { onSuccess: (result) => { if (result.conflict) { initialSyncResolved.current = false; promptKey.current = null; refetchRemote().catch(() => undefined); } } });
+  }, [language, numberStyle, remoteData?.updatedAt, refetchRemote, savePreferences]);
 
   useEffect(() => {
-    if (authLoading || !isAuthenticated || !hydrated || !remote.isFetched || initialSyncResolved.current) return;
-    const cloudPreferences = remote.data;
+    if (authLoading || !isAuthenticated || !hydrated || !remoteIsFetched || initialSyncResolved.current) return;
+    const cloudPreferences = remoteData;
     if (!cloudPreferences) {
       initialSyncResolved.current = true;
       if (updatedAt > 0) saveSnapshot(updatedAt);
@@ -77,12 +78,12 @@ export function CloudPreferencesSync() {
         { text: t("الإبقاء على الجهاز", "Keep device"), style: "cancel", onPress: cloudIsNewer ? keepLocal : useCloud },
       ],
     );
-  }, [applySyncedPreferences, authLoading, hydrated, isAuthenticated, language, numberStyle, remote.data, remote.isFetched, t, updatedAt]);
+  }, [applySyncedPreferences, authLoading, hydrated, isAuthenticated, language, numberStyle, remoteData, remoteIsFetched, saveSnapshot, t, updatedAt]);
 
   useEffect(() => {
     if (authLoading || !isAuthenticated || !hydrated || !initialSyncResolved.current || updatedAt <= 0) return;
     saveSnapshot(updatedAt);
-  }, [authLoading, hydrated, isAuthenticated, language, numberStyle, updatedAt]);
+  }, [authLoading, hydrated, isAuthenticated, language, numberStyle, saveSnapshot, updatedAt]);
 
   return null;
 }

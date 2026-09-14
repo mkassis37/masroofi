@@ -43,7 +43,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Validate project
-        run: pnpm check
+        run: |
+          pnpm check
+          pnpm test
 
       - name: Build Android APK with EAS
         run: npx eas-cli@latest build --platform android --profile preview --non-interactive --wait
