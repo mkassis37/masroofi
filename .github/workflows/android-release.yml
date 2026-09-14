@@ -23,7 +23,9 @@ jobs:
     timeout-minutes: 30
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-      EAS_PROJECT_ID: ${{ secrets.EAS_PROJECT_ID }}
+      # The project ID is public configuration; use the repository secret when present,
+      # otherwise fall back to the verified finance-tracker project under malak-new.
+      EAS_PROJECT_ID: ${{ secrets.EAS_PROJECT_ID || '4a0168fa-263a-494b-bfcf-0c2775128058' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,6 +48,11 @@ jobs:
         run: |
           pnpm check
           pnpm test
+
+      - name: Validate EAS project ID
+        run: |
+          test -n "$EAS_PROJECT_ID"
+          node -e 'const id=process.env.EAS_PROJECT_ID; if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) { throw new Error("EAS_PROJECT_ID is not a valid UUID"); }'
 
       - name: Build Android APK with EAS
         run: npx eas-cli@latest build --platform android --profile preview --non-interactive --wait

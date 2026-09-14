@@ -241,3 +241,10 @@
 - [x] نقل ربط Expo/EAS إلى الحساب `malak-new` وتحديث معرّف المشروع الجديد.
 - [x] تحديث توثيق GitHub Secrets والتحقق من إعدادات البناء دون كشف الأسرار.
 - [x] فحص الإعدادات ورفع التحديث إلى GitHub قبل إعادة تشغيل بناء APK.
+
+- [x] تحديث مهارة expo-release-ota بسير نقل ملكية Expo/EAS وتحديث owner وEAS_PROJECT_ID وأسرار GitHub.
+
+- [ ] إضافة `EXPO_TOKEN` و`EAS_PROJECT_ID` إلى GitHub Repository Secrets لمستودع مصروفي والتحقق من Workflow.
+
+- [x] إصلاح فشل Workflow الناتج عن ظهور EAS_PROJECT_ID فارغًا أو غير صالح.
+- [ ] إعادة تشغيل البناء والتحقق من إنشاء APK بعد إصلاح السر أو Workflow.
