@@ -133,6 +133,16 @@ const config: ExpoConfig = {
       },
     ],
   ],
+  updates: easProjectId
+    ? {
+        url: `https://u.expo.dev/${easProjectId}`,
+        checkAutomatically: "ON_LOAD",
+        fallbackToCacheTimeout: 0,
+      }
+    : undefined,
+  runtimeVersion: {
+    policy: "appVersion",
+  },
   extra: easProjectId ? { eas: { projectId: easProjectId } } : undefined,
   experiments: {
     typedRoutes: true,

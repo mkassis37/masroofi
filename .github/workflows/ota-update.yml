@@ -1,0 +1,53 @@
+name: Publish OTA update
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: EAS Update channel
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+          - preview
+  push:
+    branches:
+      - "ota/**"
+
+jobs:
+  publish:
+    name: Publish JavaScript and assets with EAS Update
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EAS_PROJECT_ID: ${{ secrets.EAS_PROJECT_ID }}
+      OTA_CHANNEL: ${{ github.event.inputs.channel || 'production' }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check types and tests
+        run: |
+          pnpm check
+          pnpm test
+
+      - name: Publish OTA update
+        run: pnpm dlx eas-cli update --channel "$OTA_CHANNEL" --message "OTA update from ${GITHUB_SHA}" --non-interactive

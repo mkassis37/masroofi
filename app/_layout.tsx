@@ -22,6 +22,7 @@ import {
 import { AppLock } from "@/components/app-lock";
 import { CloudPreferencesSync } from "@/components/cloud-preferences-sync";
 import { UpdateChecker } from "@/components/update-checker";
+import { OtaUpdateController } from "@/components/ota-update-controller";
 import {
   SafeAreaFrameContext,
   SafeAreaInsetsContext,
@@ -158,6 +159,7 @@ export default function RootLayout() {
           <NativeSplashController />
           <CloudPreferencesSync />
           <UpdateChecker />
+          <OtaUpdateController />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="oauth/callback" />
