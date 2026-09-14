@@ -30,7 +30,8 @@ const env = {
   // App branding - update these values directly (do not use env vars)
   appName: "مصروفي",
   appSlug: "my-finance-tracker",
-  // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
+  owner: "malak-new",
+  // S3 URL of the app logo - set this to the URL returned from generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
   logoUrl: "",
   scheme: schemeFromBundleId,
@@ -38,11 +39,13 @@ const env = {
   androidPackage: bundleId,
 };
 
-const easProjectId = process.env.EAS_PROJECT_ID;
+const easProjectId =
+  process.env.EAS_PROJECT_ID ?? "4a0168fa-263a-494b-bfcf-0c2775128058";
 
 const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
+  owner: env.owner,
   version: "1.0.0",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
