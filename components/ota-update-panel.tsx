@@ -1,11 +1,28 @@
 import Constants from "expo-constants";
 import * as Updates from "expo-updates";
 import { useMemo, useState } from "react";
-import { Alert, ActivityIndicator, Pressable, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  Switch,
+  Text,
+  View,
+} from "react-native";
 
 type Translator = (ar: string, en: string) => string;
 
-export function OtaUpdatePanel({ t, scale }: { t: Translator; scale: number }) {
+export function OtaUpdatePanel({
+  t,
+  scale,
+  autoUpdateChecks,
+  setAutoUpdateChecks,
+}: {
+  t: Translator;
+  scale: number;
+  autoUpdateChecks: boolean;
+  setAutoUpdateChecks: (value: boolean) => void;
+}) {
   const [checking, setChecking] = useState(false);
   const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
   const [status, setStatus] = useState<
@@ -112,6 +129,45 @@ export function OtaUpdatePanel({ t, scale }: { t: Translator; scale: number }) {
           "View the current app version and check OTA updates for JavaScript and assets.",
         )}
       </Text>
+      <View
+        style={{
+          flexDirection: "row-reverse",
+          justifyContent: "space-between",
+          alignItems: "center",
+          backgroundColor: "#FFFFFF",
+          borderRadius: 12,
+          padding: 13,
+          marginBottom: 9,
+        }}
+      >
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{
+              color: "#17212B",
+              fontWeight: "800",
+              textAlign: "right",
+              fontSize: 14 * scale,
+            }}
+          >
+            {t("الفحص التلقائي", "Automatic checks")}
+          </Text>
+          <Text
+            style={{
+              color: "#667085",
+              textAlign: "right",
+              lineHeight: 20,
+              marginTop: 3,
+              fontSize: 12 * scale,
+            }}
+          >
+            {t(
+              "يفحص تحديثات GitHub وOTA عند تشغيل التطبيق وعودته للمقدمة.",
+              "Check GitHub and OTA updates when the app starts or returns to the foreground.",
+            )}
+          </Text>
+        </View>
+        <Switch value={autoUpdateChecks} onValueChange={setAutoUpdateChecks} />
+      </View>
       <View
         style={{
           backgroundColor: "#FFFFFF",

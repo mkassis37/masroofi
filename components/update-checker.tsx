@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { Alert, AppState, Platform } from "react-native";
 
 import { useI18n } from "@/lib/i18n";
+import { useAppPreferences } from "@/lib/app-preferences";
 import {
   fetchLatestRelease,
   getAvailableUpdate,
@@ -23,6 +24,7 @@ async function openUpdateLink(update: AvailableUpdate) {
 
 export function UpdateChecker() {
   const { language } = useI18n();
+  const { autoUpdateChecks } = useAppPreferences();
   const lastCheckAt = useRef(0);
   const isChecking = useRef(false);
   const alertedVersion = useRef<string | null>(null);
@@ -31,6 +33,7 @@ export function UpdateChecker() {
     const checkForUpdate = async () => {
       if (
         Platform.OS === "web" ||
+        !autoUpdateChecks ||
         isChecking.current ||
         Date.now() - lastCheckAt.current < CHECK_INTERVAL_MS
       )
@@ -79,7 +82,7 @@ export function UpdateChecker() {
     });
 
     return () => subscription.remove();
-  }, [language]);
+  }, [language, autoUpdateChecks]);
 
   if (Platform.OS === "web") return null;
   return null;

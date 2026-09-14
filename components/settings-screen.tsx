@@ -71,6 +71,8 @@ export default function SettingsScreen() {
     setBrightness,
     setNumberStyle,
     markBackupComplete,
+    autoUpdateChecks,
+    setAutoUpdateChecks,
   } = useAppPreferences();
   const { setColorScheme } = useThemeContext();
   const [panel, setPanel] = useState<Panel>(null);
@@ -447,7 +449,14 @@ export default function SettingsScreen() {
                   <CloudSync />
                 </View>
               )}{" "}
-              {panel === "updates" && <OtaUpdatePanel t={t} scale={scale} />}{" "}
+              {panel === "updates" && (
+                <OtaUpdatePanel
+                  t={t}
+                  scale={scale}
+                  autoUpdateChecks={autoUpdateChecks}
+                  setAutoUpdateChecks={setAutoUpdateChecks}
+                />
+              )}{" "}
               {panel === "about" && (
                 <View>
                   <Text style={styles.aboutName}>مصروفي</Text>

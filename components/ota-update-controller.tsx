@@ -3,11 +3,13 @@ import { useEffect, useRef } from "react";
 import { Alert, AppState, Platform } from "react-native";
 
 import { useI18n } from "@/lib/i18n";
+import { useAppPreferences } from "@/lib/app-preferences";
 
 const CHECK_INTERVAL_MS = 12 * 60 * 60 * 1000;
 
 export function OtaUpdateController() {
   const { language } = useI18n();
+  const { autoUpdateChecks } = useAppPreferences();
   const isChecking = useRef(false);
   const lastCheckAt = useRef(0);
   const alertedUpdateId = useRef<string | null>(null);
@@ -16,6 +18,7 @@ export function OtaUpdateController() {
     const checkForOtaUpdate = async () => {
       if (
         Platform.OS === "web" ||
+        !autoUpdateChecks ||
         !Updates.isEnabled ||
         isChecking.current ||
         Date.now() - lastCheckAt.current < CHECK_INTERVAL_MS
@@ -79,7 +82,7 @@ export function OtaUpdateController() {
     });
 
     return () => subscription.remove();
-  }, [language]);
+  }, [language, autoUpdateChecks]);
 
   return null;
 }
