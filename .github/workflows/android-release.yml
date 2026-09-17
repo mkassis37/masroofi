@@ -91,9 +91,40 @@ jobs:
 
       - name: Create GitHub Release and upload APK for version tags
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: مصروفي ${{ github.ref_name }}
-          generate_release_notes: true
-          files: release/*.apk
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="release/masroofi-${RELEASE_TAG}.apk"
+
+          # The release may already exist if a previous upload was interrupted.
+          # Reuse it and upload the asset with retries instead of failing on a
+          # transient HTML/5xx response from GitHub's upload endpoint.
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            for attempt in 1 2 3 4 5; do
+              if gh release create "$RELEASE_TAG" "$apk" \
+                --repo "$GITHUB_REPOSITORY" \
+                --title "مصروفي $RELEASE_TAG" \
+                --generate-notes; then
+                exit 0
+              fi
+              echo "Release creation/upload attempt $attempt failed; retrying..."
+              sleep 15
+            done
+            echo "Unable to create GitHub Release after 5 attempts."
+            exit 1
+          fi
+
+          for attempt in 1 2 3 4 5; do
+            if gh release upload "$RELEASE_TAG" "$apk" \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber; then
+              exit 0
+            fi
+            echo "Release asset upload attempt $attempt failed; retrying..."
+            sleep 15
+          done
+          echo "Unable to upload APK asset after 5 attempts."
+          exit 1
