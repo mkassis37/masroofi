@@ -20,7 +20,7 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 120
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     steps:
@@ -48,14 +48,36 @@ jobs:
           pnpm lint
 
       - name: Build Android APK with EAS
-        run: npx eas-cli@latest build --platform android --profile preview --non-interactive --wait
+        shell: bash
+        run: |
+          mkdir -p release
+          npx eas-cli@latest build \
+            --platform android \
+            --profile preview \
+            --non-interactive \
+            --wait \
+            --json > release/build.json
 
       - name: Download APK from EAS
         shell: bash
         run: |
-          mkdir -p release
-          npx eas-cli@latest build:list --platform android --status finished --limit 1 --json > release/build.json
-          node -e 'const fs=require("fs"); const builds=JSON.parse(fs.readFileSync("release/build.json","utf8")); const url=builds[0]?.artifacts?.buildUrl; if(!url) throw new Error("No finished APK artifact found"); fs.writeFileSync("release/build-url.txt", url);'
+          node <<'NODE'
+          const fs = require("fs");
+          const raw = fs.readFileSync("release/build.json", "utf8").trim();
+          let build;
+          try {
+            build = JSON.parse(raw);
+          } catch {
+            throw new Error(`EAS did not return valid JSON. Output begins with: ${raw.slice(0, 500)}`);
+          }
+          const builds = Array.isArray(build) ? build : [build];
+          const finished = builds.find((item) => item?.status === "FINISHED" && item?.artifacts?.buildUrl);
+          if (!finished) {
+            throw new Error(`EAS build did not finish successfully: ${JSON.stringify(builds[0])}`);
+          }
+          fs.writeFileSync("release/build-id.txt", finished.id ?? "unknown");
+          fs.writeFileSync("release/build-url.txt", finished.artifacts.buildUrl);
+          NODE
           curl -L --fail --retry 3 "$(cat release/build-url.txt)" -o "release/masroofi-${GITHUB_REF_NAME}.apk"
 
       - name: Upload APK artifact for main builds
