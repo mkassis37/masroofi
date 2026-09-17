@@ -20,7 +20,7 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 300
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     steps:
