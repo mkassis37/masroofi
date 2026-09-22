@@ -250,3 +250,5 @@
 - [ ] إعادة تشغيل البناء والتحقق من إنشاء APK بعد إصلاح السر أو Workflow.
 
 - [x] توحيد Expo slug مع مشروع EAS finance-tracker لمنع رفض البناء بسبب اختلاف slug.
+
+- [x] تحديث مهارة expo-release-ota بسير تشخيص فشل APK ومطابقة owner وslug وEAS Project ID ومتابعة طابور EAS.
