@@ -1,6 +1,7 @@
 import Constants from "expo-constants";
+import * as Linking from "expo-linking";
 import * as Updates from "expo-updates";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -9,6 +10,12 @@ import {
   Text,
   View,
 } from "react-native";
+import {
+  fetchLatestRelease,
+  getAvailableUpdate,
+  normalizeReleaseVersion,
+  type AvailableUpdate,
+} from "@/lib/github-releases";
 
 type Translator = (ar: string, en: string) => string;
 
@@ -29,6 +36,10 @@ export function OtaUpdatePanel({
 }) {
   const [checking, setChecking] = useState(false);
   const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
+  const [githubChecking, setGithubChecking] = useState(false);
+  const [githubVersion, setGithubVersion] = useState<string | null>(null);
+  const [githubUpdate, setGithubUpdate] = useState<AvailableUpdate | null>(null);
+  const [githubError, setGithubError] = useState(false);
   const [status, setStatus] = useState<
     "idle" | "current" | "available" | "unavailable" | "error"
   >("idle");
@@ -43,6 +54,27 @@ export function OtaUpdatePanel({
   const updateMode = Updates.isEmbeddedLaunch
     ? t("النسخة المدمجة", "Embedded version")
     : t("نسخة OTA", "OTA version");
+
+  useEffect(() => {
+    let active = true;
+    setGithubChecking(true);
+    void fetchLatestRelease()
+      .then((release) => {
+        if (!active) return;
+        setGithubVersion(normalizeReleaseVersion(release.tag_name));
+        setGithubUpdate(getAvailableUpdate(release, appVersion));
+        setGithubError(false);
+      })
+      .catch(() => {
+        if (active) setGithubError(true);
+      })
+      .finally(() => {
+        if (active) setGithubChecking(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [appVersion]);
   const statusLabel = useMemo(() => {
     if (status === "current") return t("التطبيق محدث", "App is up to date");
     if (status === "available") return t("يتوفر تحديث", "Update available");
@@ -221,6 +253,14 @@ export function OtaUpdatePanel({
       >
         <InfoRow label={t("نسخة التطبيق", "App version")} value={appVersion} />
         <InfoRow
+          label={t("أحدث نسخة على GitHub", "Latest GitHub version")}
+          value={githubChecking ? t("جارٍ الفحص...", "Checking...") : githubVersion ?? (githubError ? t("تعذر الاتصال", "Connection failed") : t("غير متاحة", "Unavailable"))}
+        />
+        <InfoRow
+          label={t("حالة نسخة GitHub", "GitHub release status")}
+          value={githubUpdate ? t("يتوفر تحديث جديد", "New update available") : githubVersion ? t("التطبيق محدث", "App is up to date") : t("لم يتم الفحص", "Not checked")}
+        />
+        <InfoRow
           label={t("نسخة OTA الحالية", "Current OTA update")}
           value={otaVersion}
           compact
@@ -239,6 +279,25 @@ export function OtaUpdatePanel({
           />
         )}
       </View>
+      {githubUpdate && (
+        <Pressable
+          onPress={() => void Linking.openURL(githubUpdate.downloadUrl ?? githubUpdate.releaseUrl)}
+          style={({ pressed }) => [
+            {
+              backgroundColor: "#0F9B8E",
+              borderRadius: 12,
+              padding: 13,
+              alignItems: "center",
+              marginBottom: 9,
+            },
+            pressed && { opacity: 0.78 },
+          ]}
+        >
+          <Text style={{ color: "#FFFFFF", fontWeight: "800", fontSize: 14 * scale }}>
+            {t(`تنزيل الإصدار ${githubUpdate.version} من GitHub`, `Download version ${githubUpdate.version} from GitHub`)}
+          </Text>
+        </Pressable>
+      )}
       <Pressable
         onPress={() => void checkNow()}
         disabled={checking}
