@@ -1,37 +1,140 @@
 import { describe, expect, it } from "vitest";
-import { calculateBalances } from "../lib/finance-calculations";
+import {
+  calculateAccountBalances,
+  calculateAccountBalancesByCurrency,
+  calculateBalances,
+  calculateCurrencyTotals,
+} from "../lib/finance-calculations";
 
-const entry = (partial: Record<string, unknown>): any => ({ id: "1", type: "debit", amount: 0, account: "cash", note: "", date: "2026-09-02", createdAt: 0, ...partial });
+const entry = (partial: Record<string, unknown>): any => ({
+  id: "1",
+  type: "debit",
+  amount: 0,
+  account: "cash",
+  note: "",
+  date: "2026-09-02",
+  createdAt: 0,
+  ...partial,
+});
+const accounts = [
+  { id: "cash", kind: "cash" as const, openingBalance: 100 },
+  { id: "bank", kind: "bank" as const, openingBalance: 50 },
+];
 
 describe("calculateBalances", () => {
   it("calculates cash and bank after income and expenses", () => {
-    const result = calculateBalances([
-      entry({ type: "debit", amount: 1000, account: "cash" }),
-      entry({ type: "credit", amount: 250, account: "cash" }),
-      entry({ type: "debit", amount: 500, account: "bank" }),
-      entry({ type: "credit", amount: 75, account: "bank" }),
-    ], 100, 50);
+    const result = calculateBalances(
+      [
+        entry({ type: "debit", amount: 1000, account: "cash" }),
+        entry({ type: "credit", amount: 250, account: "cash" }),
+        entry({ type: "debit", amount: 500, account: "bank" }),
+        entry({ type: "credit", amount: 75, account: "bank" }),
+      ],
+      100,
+      50,
+    );
     expect(result).toEqual({ cash: 850, bank: 475, total: 1325 });
   });
 
   it("moves money from cash to bank without changing total balance", () => {
-    const result = calculateBalances([entry({ type: "transfer", amount: 300, account: "cash" })], 1000, 200);
+    const result = calculateBalances(
+      [entry({ type: "transfer", amount: 300, account: "cash" })],
+      1000,
+      200,
+    );
     expect(result).toEqual({ cash: 700, bank: 500, total: 1200 });
   });
 });
 
-
 describe("multiple accounts", () => {
-  it("moves money between named bank accounts", async () => {
-    const { calculateAccountBalances } = await import("../lib/finance-calculations");
-    const result = calculateAccountBalances([
-      { type: "transfer", amount: 250, fromAccountId: "cash", toAccountId: "bank-arab", account: "cash" },
-      { type: "transfer", amount: 100, fromAccountId: "bank-arab", toAccountId: "bank-housing", account: "bank" },
-    ], [
-      { id: "cash", kind: "cash", openingBalance: 1000 },
-      { id: "bank-arab", kind: "bank", openingBalance: 200 },
-      { id: "bank-housing", kind: "bank", openingBalance: 50 },
-    ]);
-    expect(result).toEqual({ cash: 750, "bank-arab": 350, "bank-housing": 150 });
+  it("moves money between named bank accounts", () => {
+    const result = calculateAccountBalances(
+      [
+        {
+          type: "transfer",
+          amount: 250,
+          fromAccountId: "cash",
+          toAccountId: "bank-arab",
+          account: "cash",
+        },
+        {
+          type: "transfer",
+          amount: 100,
+          fromAccountId: "bank-arab",
+          toAccountId: "bank-housing",
+          account: "bank",
+        },
+      ],
+      [
+        { id: "cash", kind: "cash", openingBalance: 1000 },
+        { id: "bank-arab", kind: "bank", openingBalance: 200 },
+        { id: "bank-housing", kind: "bank", openingBalance: 50 },
+      ],
+    );
+    expect(result).toEqual({
+      cash: 750,
+      "bank-arab": 350,
+      "bank-housing": 150,
+    });
+  });
+});
+
+describe("currency isolation", () => {
+  it("keeps JOD and ILS balances separate and does not create a mixed total", () => {
+    const result = calculateAccountBalancesByCurrency(
+      [
+        entry({
+          type: "debit",
+          amount: 100,
+          accountId: "cash",
+          currencyCode: "JOD",
+        }),
+        entry({
+          type: "credit",
+          amount: 20,
+          accountId: "cash",
+          currencyCode: "ILS",
+        }),
+        entry({
+          type: "transfer",
+          amount: 10,
+          fromAccountId: "cash",
+          toAccountId: "bank",
+          account: "cash",
+          currencyCode: "ILS",
+        }),
+      ],
+      accounts,
+      "JOD",
+    );
+
+    expect(result.JOD).toEqual({ cash: 200, bank: 50 });
+    expect(result.ILS).toEqual({ cash: -30, bank: 10 });
+    expect(calculateCurrencyTotals(result)).toEqual({ JOD: 250, ILS: -20 });
+  });
+
+  it("uses currency-specific opening balances without changing legacy defaults", () => {
+    const result = calculateAccountBalancesByCurrency(
+      [],
+      [
+        {
+          id: "cash",
+          kind: "cash",
+          openingBalance: 100,
+          openingBalances: { JOD: 100, ILS: 80 },
+        },
+        {
+          id: "bank",
+          kind: "bank",
+          openingBalance: 50,
+          openingBalances: { JOD: 50, ILS: 25 },
+        },
+      ],
+      "JOD",
+    );
+    expect(result).toEqual({
+      JOD: { cash: 100, bank: 50 },
+      ILS: { cash: 80, bank: 25 },
+    });
   });
 });
