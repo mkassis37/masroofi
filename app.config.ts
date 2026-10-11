@@ -30,7 +30,7 @@ const env = {
   // App branding - update these values directly (do not use env vars)
   appName: "مصروفي",
   appSlug: "finance-tracker",
-  owner: "malak-new",
+  owner: "minaskamal1s-teams",
   // S3 URL of the app logo - set this to the URL returned from generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
   logoUrl: "",
@@ -39,8 +39,7 @@ const env = {
   androidPackage: bundleId,
 };
 
-const easProjectId =
-  process.env.EAS_PROJECT_ID ?? "4a0168fa-263a-494b-bfcf-0c2775128058";
+const easProjectId = process.env.EAS_PROJECT_ID;
 
 const config: ExpoConfig = {
   name: env.appName,

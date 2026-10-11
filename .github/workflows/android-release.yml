@@ -23,6 +23,7 @@ jobs:
     timeout-minutes: 300
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EAS_PROJECT_ID: ${{ secrets.EAS_PROJECT_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,6 +44,10 @@ jobs:
 
       - name: Validate project
         run: |
+          if [[ ! "$EAS_PROJECT_ID" =~ ^[0-9a-fA-F-]{36}$ ]]; then
+            echo "EAS_PROJECT_ID must be a valid UUID secret for minaskamal1s-teams."
+            exit 1
+          fi
           pnpm check
           pnpm test
           pnpm lint
