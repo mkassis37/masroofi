@@ -50,12 +50,12 @@ jobs:
           project_id="${EAS_PROJECT_ID:-}"
           if [[ ! "$project_id" =~ ^[0-9a-fA-F-]{36}$ ]]; then
             set +e
-            raw="$(EAS_PROJECT_ID= npx eas-cli@latest project:info --json 2>&1)"
+            raw="$(EAS_PROJECT_ID= npx eas-cli@latest project:init --account minaskamal1s-team --json --non-interactive 2>&1)"
             eas_status=$?
             set -e
             printf '%s\n' "$raw" > release/project-info.txt
             if [[ "$eas_status" -ne 0 ]]; then
-              echo "EAS could not resolve finance-tracker for minaskamal1s-team. Details:"
+              echo "EAS could not link or initialize finance-tracker for minaskamal1s-team. Details:"
               cat release/project-info.txt
               exit "$eas_status"
             fi
