@@ -42,6 +42,35 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Resolve EAS project for minaskamal1s-teams
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          raw="$(EAS_PROJECT_ID= npx eas-cli@latest project:info --json 2>&1)"
+          printf '%s\n' "$raw" > release/project-info.txt
+          project_id="$(printf '%s' "$raw" | node -e '
+            let input = "";
+            process.stdin.on("data", (chunk) => (input += chunk));
+            process.stdin.on("end", () => {
+              try {
+                const parsed = JSON.parse(input);
+                const id = parsed.id ?? parsed.projectId ?? parsed.project?.id ?? "";
+                process.stdout.write(String(id));
+              } catch {
+                const match = input.match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/);
+                process.stdout.write(match?.[0] ?? "");
+              }
+            });
+          ')"
+          if [[ ! "$project_id" =~ ^[0-9a-fA-F-]{36}$ ]]; then
+            echo "Could not resolve a valid EAS project ID for owner minaskamal1s-teams and slug finance-tracker."
+            cat release/project-info.txt
+            exit 1
+          fi
+          echo "EAS_PROJECT_ID=$project_id" >> "$GITHUB_ENV"
+          echo "Resolved EAS project ID for the configured team (value hidden)."
+
       - name: Validate project
         run: |
           if [[ ! "$EAS_PROJECT_ID" =~ ^[0-9a-fA-F-]{36}$ ]]; then
