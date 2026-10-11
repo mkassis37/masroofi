@@ -47,30 +47,33 @@ jobs:
         run: |
           set -uo pipefail
           mkdir -p release
-          set +e
-          raw="$(EAS_PROJECT_ID= npx eas-cli@latest project:info --json 2>&1)"
-          eas_status=$?
-          set -e
-          printf '%s\n' "$raw" > release/project-info.txt
-          if [[ "$eas_status" -ne 0 ]]; then
-            echo "EAS could not resolve finance-tracker for minaskamal1s-team. Details:"
-            cat release/project-info.txt
-            exit "$eas_status"
+          project_id="${EAS_PROJECT_ID:-}"
+          if [[ ! "$project_id" =~ ^[0-9a-fA-F-]{36}$ ]]; then
+            set +e
+            raw="$(EAS_PROJECT_ID= npx eas-cli@latest project:info --json 2>&1)"
+            eas_status=$?
+            set -e
+            printf '%s\n' "$raw" > release/project-info.txt
+            if [[ "$eas_status" -ne 0 ]]; then
+              echo "EAS could not resolve finance-tracker for minaskamal1s-team. Details:"
+              cat release/project-info.txt
+              exit "$eas_status"
+            fi
+            project_id="$(printf '%s' "$raw" | node -e '
+              let input = "";
+              process.stdin.on("data", (chunk) => (input += chunk));
+              process.stdin.on("end", () => {
+                try {
+                  const parsed = JSON.parse(input);
+                  const id = parsed.id ?? parsed.projectId ?? parsed.project?.id ?? "";
+                  process.stdout.write(String(id));
+                } catch {
+                  const match = input.match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/);
+                  process.stdout.write(match?.[0] ?? "");
+                }
+              });
+            ')"
           fi
-          project_id="$(printf '%s' "$raw" | node -e '
-            let input = "";
-            process.stdin.on("data", (chunk) => (input += chunk));
-            process.stdin.on("end", () => {
-              try {
-                const parsed = JSON.parse(input);
-                const id = parsed.id ?? parsed.projectId ?? parsed.project?.id ?? "";
-                process.stdout.write(String(id));
-              } catch {
-                const match = input.match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/);
-                process.stdout.write(match?.[0] ?? "");
-              }
-            });
-          ')"
           if [[ ! "$project_id" =~ ^[0-9a-fA-F-]{36}$ ]]; then
             echo "Could not resolve a valid EAS project ID for owner minaskamal1s-team and slug finance-tracker."
             cat release/project-info.txt
