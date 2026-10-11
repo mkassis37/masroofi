@@ -45,10 +45,18 @@ jobs:
       - name: Resolve EAS project for minaskamal1s-teams
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
           mkdir -p release
+          set +e
           raw="$(EAS_PROJECT_ID= npx eas-cli@latest project:info --json 2>&1)"
+          eas_status=$?
+          set -e
           printf '%s\n' "$raw" > release/project-info.txt
+          if [[ "$eas_status" -ne 0 ]]; then
+            echo "EAS could not resolve finance-tracker for minaskamal1s-teams. Details:"
+            cat release/project-info.txt
+            exit "$eas_status"
+          fi
           project_id="$(printf '%s' "$raw" | node -e '
             let input = "";
             process.stdin.on("data", (chunk) => (input += chunk));
