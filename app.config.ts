@@ -30,7 +30,7 @@ const env = {
   // App branding - update these values directly (do not use env vars)
   appName: "مصروفي",
   appSlug: "finance-tracker",
-  owner: "minaskamal1s-teams",
+  owner: "minaskamal1s-team",
   // S3 URL of the app logo - set this to the URL returned from generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
   logoUrl: "",

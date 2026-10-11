@@ -237,13 +237,13 @@
 - [ ] تشغيل Workflow بناء APK بعد إضافة الأسرار ومتابعة نتيجته.
 - [ ] التحقق من Artifact أو رابط APK وتشخيص أي فشل في البناء.
 
-- [x] نقل إعداد مالك Expo إلى الحساب `minaskamal1s-teams` وتجهيز القراءة الآمنة لمعرّف مشروع EAS.
+- [x] نقل إعداد مالك Expo إلى الحساب `minaskamal1s-team` وتجهيز القراءة الآمنة لمعرّف مشروع EAS.
 - [x] تحديث توثيق GitHub Secrets والتحقق من إعدادات البناء دون كشف الأسرار.
 - [x] فحص الإعدادات ورفع التحديث إلى GitHub قبل إعادة تشغيل بناء APK.
 
 - [x] تحديث مهارة expo-release-ota بسير نقل ملكية Expo/EAS وتحديث owner وEAS_PROJECT_ID وأسرار GitHub.
 
-- [ ] التحقق من أن `EXPO_TOKEN` و`EAS_PROJECT_ID` في GitHub يعودان إلى الحساب `minaskamal1s-teams`.
+- [ ] التحقق من أن `EXPO_TOKEN` و`EAS_PROJECT_ID` في GitHub يعودان إلى الحساب `minaskamal1s-team`.
 
 - [x] إصلاح فشل Workflow الناتج عن ظهور EAS_PROJECT_ID فارغًا أو غير صالح.
 - [ ] إعادة تشغيل البناء والتحقق من إنشاء APK بعد إصلاح السر أو Workflow.
