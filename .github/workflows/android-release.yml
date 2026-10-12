@@ -123,7 +123,8 @@ jobs:
           fs.writeFileSync("release/build-id.txt", finished.id ?? "unknown");
           fs.writeFileSync("release/build-url.txt", finished.artifacts.buildUrl);
           NODE
-          curl -L --fail --retry 3 "$(cat release/build-url.txt)" -o "release/masroofi-${GITHUB_REF_NAME}.apk"
+          safe_ref_name="${GITHUB_REF_NAME//\//-}"
+          curl -L --fail --retry 3 "$(cat release/build-url.txt)" -o "release/masroofi-${safe_ref_name}.apk"
 
       - name: Upload APK artifact for main builds
         if: github.ref == 'refs/heads/main'
