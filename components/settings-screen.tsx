@@ -470,7 +470,7 @@ export default function SettingsScreen() {
                     )}
                   </Text>
                   <Text style={styles.history}>
-                    {t("رقم الإصدار: 1.0.1", "Version: 1.0.1")}
+                    {t("رقم الإصدار: 1.0.2", "Version: 1.0.2")}
                   </Text>
                   <Text style={styles.history}>
                     {t("المصمم: فريق مصروفي", "Designer: Masroofi Team")}
