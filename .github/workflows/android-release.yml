@@ -47,7 +47,7 @@ jobs:
         run: |
           set -uo pipefail
           mkdir -p release
-          project_id="${EAS_PROJECT_ID:-}"
+          project_id="$(printf '%s' "${EAS_PROJECT_ID:-}" | grep -Eio '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1 || true)"
           if [[ ! "$project_id" =~ ^[0-9a-fA-F-]{36}$ ]]; then
             set +e
             raw="$(EAS_PROJECT_ID= npx eas-cli@latest project:init --account minaskamal1s-team --force --json --non-interactive 2>&1)"
