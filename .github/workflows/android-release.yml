@@ -50,7 +50,7 @@ jobs:
           project_id="${EAS_PROJECT_ID:-}"
           if [[ ! "$project_id" =~ ^[0-9a-fA-F-]{36}$ ]]; then
             set +e
-            raw="$(EAS_PROJECT_ID= npx eas-cli@latest project:init --account minaskamal1s-team --json --non-interactive 2>&1)"
+            raw="$(EAS_PROJECT_ID= npx eas-cli@latest project:init --account minaskamal1s-team --force --json --non-interactive 2>&1)"
             eas_status=$?
             set -e
             printf '%s\n' "$raw" > release/project-info.txt
