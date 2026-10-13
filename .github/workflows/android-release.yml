@@ -1,176 +1,91 @@
 name: Android Release
-
 on:
   push:
-    branches:
-      - main
-    tags:
-      - "v*"
+    branches: [main]
+    tags: ['v*']
   workflow_dispatch:
-
-concurrency:
-  group: android-apk-${{ github.ref }}
-  cancel-in-progress: false
-
 permissions:
   contents: write
-  actions: read
-
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   build-android:
-    name: Build Android APK
     runs-on: ubuntu-latest
     timeout-minutes: 300
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       EAS_PROJECT_ID: ${{ secrets.EAS_PROJECT_ID }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Enable pnpm
-        uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: 9.12.0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '20'
           cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Resolve EAS project for minaskamal1s-team
-        shell: bash
+      - name: Install and validate
         run: |
-          set -uo pipefail
-          mkdir -p release
-          project_id="$(printf '%s' "${EAS_PROJECT_ID:-}" | grep -Eio '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1 || true)"
-          if [[ ! "$project_id" =~ ^[0-9a-fA-F-]{36}$ ]]; then
-            set +e
-            raw="$(EAS_PROJECT_ID= npx eas-cli@latest project:init --account minaskamal1s-team --force --json --non-interactive 2>&1)"
-            eas_status=$?
-            set -e
-            printf '%s\n' "$raw" > release/project-info.txt
-            if [[ "$eas_status" -ne 0 ]]; then
-              echo "EAS could not link or initialize finance-tracker for minaskamal1s-team. Details:"
-              cat release/project-info.txt
-              exit "$eas_status"
-            fi
-            project_id="$(printf '%s' "$raw" | node -e '
-              let input = "";
-              process.stdin.on("data", (chunk) => (input += chunk));
-              process.stdin.on("end", () => {
-                try {
-                  const parsed = JSON.parse(input);
-                  const id = parsed.id ?? parsed.projectId ?? parsed.project?.id ?? "";
-                  process.stdout.write(String(id));
-                } catch {
-                  const match = input.match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/);
-                  process.stdout.write(match?.[0] ?? "");
-                }
-              });
-            ')"
-          fi
-          if [[ ! "$project_id" =~ ^[0-9a-fA-F-]{36}$ ]]; then
-            echo "Could not resolve a valid EAS project ID for owner minaskamal1s-team and slug finance-tracker."
-            cat release/project-info.txt
-            exit 1
-          fi
-          echo "EAS_PROJECT_ID=$project_id" >> "$GITHUB_ENV"
-          echo "Resolved EAS project ID for the configured team (value hidden)."
-
-      - name: Validate project
-        run: |
-          if [[ ! "$EAS_PROJECT_ID" =~ ^[0-9a-fA-F-]{36}$ ]]; then
-            echo "EAS_PROJECT_ID must be a valid UUID secret for minaskamal1s-team."
-            exit 1
-          fi
+          pnpm install --frozen-lockfile
           pnpm check
           pnpm test
           pnpm lint
-
-      - name: Build Android APK with EAS
-        shell: bash
-        run: |
-          mkdir -p release
-          npx eas-cli@latest build \
-            --platform android \
-            --profile preview \
-            --non-interactive \
-            --wait \
-            --json > release/build.json
-
-      - name: Download APK from EAS
-        shell: bash
-        run: |
-          node <<'NODE'
-          const fs = require("fs");
-          const raw = fs.readFileSync("release/build.json", "utf8").trim();
-          let build;
-          try {
-            build = JSON.parse(raw);
-          } catch {
-            throw new Error(`EAS did not return valid JSON. Output begins with: ${raw.slice(0, 500)}`);
-          }
-          const builds = Array.isArray(build) ? build : [build];
-          const finished = builds.find((item) => item?.status === "FINISHED" && item?.artifacts?.buildUrl);
-          if (!finished) {
-            throw new Error(`EAS build did not finish successfully: ${JSON.stringify(builds[0])}`);
-          }
-          fs.writeFileSync("release/build-id.txt", finished.id ?? "unknown");
-          fs.writeFileSync("release/build-url.txt", finished.artifacts.buildUrl);
-          NODE
-          safe_ref_name="${GITHUB_REF_NAME//\//-}"
-          curl -L --fail --retry 3 "$(cat release/build-url.txt)" -o "release/masroofi-${safe_ref_name}.apk"
-
-      - name: Upload APK artifact for main builds
-        if: github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v4
-        with:
-          name: masroofi-apk-${{ github.sha }}
-          path: release/*.apk
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Create GitHub Release and upload APK for version tags
-        if: startsWith(github.ref, 'refs/tags/v')
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
+      - name: Validate EAS secrets
         shell: bash
         run: |
           set -euo pipefail
+          test -n "$EXPO_TOKEN" || { echo 'Missing EXPO_TOKEN'; exit 1; }
+          [[ "$EAS_PROJECT_ID" =~ ^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$ ]] || { echo 'Missing or invalid EAS_PROJECT_ID'; exit 1; }
+      - name: Build Android APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          npx eas-cli@latest build --platform android --profile preview --non-interactive --wait --json > release/build.json
+      - name: Download and verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs');
+          const data=JSON.parse(fs.readFileSync('release/build.json','utf8'));
+          const builds=Array.isArray(data)?data:[data];
+          const b=builds.find(x=>x?.status==='FINISHED'&&x?.artifacts?.buildUrl);
+          if(!b)throw new Error('EAS did not produce a finished Android build');
+          fs.writeFileSync('release/build-url.txt',b.artifacts.buildUrl);
+          NODE
+          safe_ref="${GITHUB_REF_NAME//\//-}"
+          curl --fail --location --retry 3 --retry-all-errors "$(cat release/build-url.txt)" -o "release/masroofi-${safe_ref}.apk"
+          test -s "release/masroofi-${safe_ref}.apk"
+          file "release/masroofi-${safe_ref}.apk"
+          unzip -t "release/masroofi-${safe_ref}.apk" >/dev/null
+          sha256sum "release/masroofi-${safe_ref}.apk" > "release/SHA256SUMS.txt"
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: masroofi-apk-${{ github.sha }}
+          path: |
+            release/*.apk
+            release/SHA256SUMS.txt
+          retention-days: 14
+      - name: Publish tagged release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
           apk="release/masroofi-${RELEASE_TAG}.apk"
-
-          # The release may already exist if a previous upload was interrupted.
-          # Reuse it and upload the asset with retries instead of failing on a
-          # transient HTML/5xx response from GitHub's upload endpoint.
-          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            for attempt in 1 2 3 4 5; do
-              if gh release create "$RELEASE_TAG" "$apk" \
-                --repo "$GITHUB_REPOSITORY" \
-                --title "مصروفي $RELEASE_TAG" \
-                --generate-notes; then
-                exit 0
-              fi
-              echo "Release creation/upload attempt $attempt failed; retrying..."
-              sleep 15
-            done
-            echo "Unable to create GitHub Release after 5 attempts."
-            exit 1
-          fi
-
-          for attempt in 1 2 3 4 5; do
-            if gh release upload "$RELEASE_TAG" "$apk" \
-              --repo "$GITHUB_REPOSITORY" \
-              --clobber; then
-              exit 0
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            is_draft="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+            if [[ "$is_draft" != true ]]; then
+              echo "Release $RELEASE_TAG already published. Refusing to modify an immutable release. Create a NEW version tag."
+              exit 1
             fi
-            echo "Release asset upload attempt $attempt failed; retrying..."
-            sleep 15
-          done
-          echo "Unable to upload APK asset after 5 attempts."
-          exit 1
+          else
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft --title "مصروفي $RELEASE_TAG" --generate-notes
+          fi
+          gh release upload "$RELEASE_TAG" "$apk" release/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --clobber
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false
