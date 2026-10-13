@@ -1,91 +1,130 @@
-name: Android Release
+name: Masroofi Auto Release
+
 on:
   push:
-    branches: [main]
-    tags: ['v*']
+    branches:
+      - main
   workflow_dispatch:
+
 permissions:
   contents: write
+
 concurrency:
-  group: android-${{ github.ref }}
+  group: masroofi-auto-release
   cancel-in-progress: false
+
 jobs:
-  build-android:
+  build-release:
     runs-on: ubuntu-latest
     timeout-minutes: 300
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       EAS_PROJECT_ID: ${{ secrets.EAS_PROJECT_ID }}
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
           version: 9.12.0
-      - uses: actions/setup-node@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: pnpm
-      - name: Install and validate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate project
         run: |
-          pnpm install --frozen-lockfile
           pnpm check
           pnpm test
           pnpm lint
+
       - name: Validate EAS secrets
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$EXPO_TOKEN" || { echo 'Missing EXPO_TOKEN'; exit 1; }
-          [[ "$EAS_PROJECT_ID" =~ ^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$ ]] || { echo 'Missing or invalid EAS_PROJECT_ID'; exit 1; }
-      - name: Build Android APK
+          test -n "$EXPO_TOKEN" || { echo "Missing EXPO_TOKEN"; exit 1; }
+          test -n "$EAS_PROJECT_ID" || { echo "Missing EAS_PROJECT_ID"; exit 1; }
+
+      - name: Generate automatic release version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Unique, chronological release version for every successful push build.
+          VERSION="v$(date -u +'%Y.%m.%d').${GITHUB_RUN_NUMBER}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Build Android APK with EAS
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p release
-          npx eas-cli@latest build --platform android --profile preview --non-interactive --wait --json > release/build.json
+          npx eas-cli@latest build \
+            --platform android \
+            --profile preview \
+            --non-interactive \
+            --wait \
+            --json > release/build.json
+
       - name: Download and verify APK
         shell: bash
         run: |
           set -euo pipefail
           node <<'NODE'
-          const fs=require('fs');
-          const data=JSON.parse(fs.readFileSync('release/build.json','utf8'));
-          const builds=Array.isArray(data)?data:[data];
-          const b=builds.find(x=>x?.status==='FINISHED'&&x?.artifacts?.buildUrl);
-          if(!b)throw new Error('EAS did not produce a finished Android build');
-          fs.writeFileSync('release/build-url.txt',b.artifacts.buildUrl);
+          const fs = require('fs');
+          const data = JSON.parse(fs.readFileSync('release/build.json','utf8'));
+          const builds = Array.isArray(data) ? data : [data];
+          const build = builds.find(x => x?.status === 'FINISHED' && x?.artifacts?.buildUrl);
+          if (!build) throw new Error('EAS did not produce a finished Android APK');
+          fs.writeFileSync('release/build-url.txt', build.artifacts.buildUrl);
           NODE
-          safe_ref="${GITHUB_REF_NAME//\//-}"
-          curl --fail --location --retry 3 --retry-all-errors "$(cat release/build-url.txt)" -o "release/masroofi-${safe_ref}.apk"
-          test -s "release/masroofi-${safe_ref}.apk"
-          file "release/masroofi-${safe_ref}.apk"
-          unzip -t "release/masroofi-${safe_ref}.apk" >/dev/null
-          sha256sum "release/masroofi-${safe_ref}.apk" > "release/SHA256SUMS.txt"
-      - name: Upload build artifact
+
+          APK="release/masroofi-${VERSION}.apk"
+          curl --fail --location --retry 3 --retry-all-errors \
+            "$(cat release/build-url.txt)" \
+            -o "$APK"
+
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
+          sha256sum "$APK" > release/SHA256SUMS.txt
+
+      - name: Upload Actions artifact
         uses: actions/upload-artifact@v4
         with:
-          name: masroofi-apk-${{ github.sha }}
+          name: masroofi-${{ steps.version.outputs.version }}
           path: |
             release/*.apk
             release/SHA256SUMS.txt
           retention-days: 14
-      - name: Publish tagged release
-        if: startsWith(github.ref, 'refs/tags/v')
+
+      - name: Create tag and GitHub Release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          apk="release/masroofi-${RELEASE_TAG}.apk"
-          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            is_draft="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
-            if [[ "$is_draft" != true ]]; then
-              echo "Release $RELEASE_TAG already published. Refusing to modify an immutable release. Create a NEW version tag."
-              exit 1
-            fi
-          else
-            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft --title "مصروفي $RELEASE_TAG" --generate-notes
-          fi
-          gh release upload "$RELEASE_TAG" "$apk" release/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --clobber
-          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false
+          APK="release/masroofi-${VERSION}.apk"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "$VERSION" "$GITHUB_SHA"
+          git push origin "$VERSION"
+
+          gh release create "$VERSION" \
+            "$APK" \
+            release/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "مصروفي $VERSION" \
+            --generate-notes \
+            --latest
