@@ -77,6 +77,41 @@ describe("multiple accounts", () => {
       "bank-housing": 150,
     });
   });
+
+  it("keeps each bank balance independent after income, expense, and transfer", () => {
+    const result = calculateAccountBalances(
+      [
+        entry({
+          type: "debit",
+          amount: 300,
+          accountId: "bank-arab",
+          account: "bank",
+        }),
+        entry({
+          type: "credit",
+          amount: 40,
+          accountId: "bank-arab",
+          account: "bank",
+        }),
+        entry({
+          type: "transfer",
+          amount: 75,
+          fromAccountId: "bank-arab",
+          toAccountId: "bank-housing",
+          account: "bank",
+        }),
+      ],
+      [
+        { id: "bank-arab", kind: "bank", openingBalance: 1000 },
+        { id: "bank-housing", kind: "bank", openingBalance: 500 },
+      ],
+    );
+
+    expect(result).toEqual({
+      "bank-arab": 1185,
+      "bank-housing": 575,
+    });
+  });
 });
 
 describe("currency isolation", () => {
