@@ -26,6 +26,9 @@ export const LATEST_RELEASE_URL = `https://api.github.com/repos/${MASROOFI_GITHU
 
 function parseVersion(value: string) {
   const normalized = value.trim().replace(/^v/i, "").split(/[+-]/, 1)[0];
+  // Ignore automatic date-based tags such as v2026.11.01.45. Only
+  // semantic app releases (1, 1.2, or 1.2.3) can trigger an update prompt.
+  if (!/^\d+(?:\.\d+){0,2}$/.test(normalized)) return null;
   const parts = normalized.split(".").map((part) => Number.parseInt(part, 10));
   if (
     parts.length < 1 ||

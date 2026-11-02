@@ -44,6 +44,12 @@ describe("github release updates", () => {
     });
     expect(getAvailableUpdate(release, "1.1.0")).toBeNull();
     expect(
+      getAvailableUpdate(
+        { ...release, tag_name: "v2026.11.01.45" },
+        "1.0.3",
+      ),
+    ).toBeNull();
+    expect(
       getAvailableUpdate({ ...release, prerelease: true }, "1.0.0"),
     ).toBeNull();
   });
