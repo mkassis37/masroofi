@@ -1,15 +1,39 @@
 import { useMemo, useState } from "react";
-import { Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { useFinance, formatMoney, type EntryType, type FinancialEntry } from "@/lib/finance-context";
+import {
+  useFinance,
+  formatMoney,
+  type EntryType,
+  type FinancialEntry,
+} from "@/lib/finance-context";
 import { generateAndSharePdf } from "@/lib/pdf-reports";
 import { findCurrency } from "@/lib/currencies";
 import { CurrencyDropdown } from "@/components/currency-dropdown";
 import { DatePickerField } from "@/components/date-picker-field";
 import { useI18n } from "@/lib/i18n";
+import { useAppPreferences } from "@/lib/app-preferences";
 import { formatDate } from "@/lib/number-format";
 
-function EditEntryModal({ entry, onClose }: { entry: FinancialEntry | null; onClose: () => void }) {
+function EditEntryModal({
+  entry,
+  onClose,
+}: {
+  entry: FinancialEntry | null;
+  onClose: () => void;
+}) {
   const { updateEntry, categories, accounts } = useFinance();
   const { t } = useI18n();
   const [amount, setAmount] = useState(entry ? String(entry.amount) : "");
@@ -25,11 +49,29 @@ function EditEntryModal({ entry, onClose }: { entry: FinancialEntry | null; onCl
   if (!entry) return null;
   const save = () => {
     const value = Number(amount.replace(",", "."));
-    if (!Number.isFinite(value) || value <= 0) return Alert.alert(t("المبلغ غير صحيح"), t("اكتب مبلغًا أكبر من صفر."));
-    if (!note.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return Alert.alert(t("بيانات غير مكتملة"), t("أكمل البيان والتاريخ بصيغة YYYY-MM-DD."));
+    if (!Number.isFinite(value) || value <= 0)
+      return Alert.alert(t("المبلغ غير صحيح"), t("اكتب مبلغًا أكبر من صفر."));
+    if (!note.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(date))
+      return Alert.alert(
+        t("بيانات غير مكتملة"),
+        t("أكمل البيان والتاريخ بصيغة YYYY-MM-DD."),
+      );
     if (entry.type === "transfer") {
-      if (fromId === toId) return Alert.alert(t("اختر حسابين مختلفين"), t("حساب المصدر والوجهة يجب أن يكونا مختلفين."));
-      updateEntry(entry.id, { amount: value, note: note.trim(), date, accountId: fromId, account: accounts.find((account) => account.id === fromId)?.kind ?? "cash", fromAccountId: fromId, toAccountId: toId });
+      if (fromId === toId)
+        return Alert.alert(
+          t("اختر حسابين مختلفين"),
+          t("حساب المصدر والوجهة يجب أن يكونا مختلفين."),
+        );
+      updateEntry(entry.id, {
+        amount: value,
+        note: note.trim(),
+        date,
+        accountId: fromId,
+        account:
+          accounts.find((account) => account.id === fromId)?.kind ?? "cash",
+        fromAccountId: fromId,
+        toAccountId: toId,
+      });
     } else {
       updateEntry(entry.id, {
         type,
@@ -37,42 +79,758 @@ function EditEntryModal({ entry, onClose }: { entry: FinancialEntry | null; onCl
         note: note.trim(),
         date,
         accountId,
-        account: accounts.find((account) => account.id === accountId)?.kind ?? "cash",
+        account:
+          accounts.find((account) => account.id === accountId)?.kind ?? "cash",
         category: type === "credit" ? category : undefined,
       });
     }
     onClose();
   };
-  return <Modal visible={Boolean(entry)} animationType="slide" transparent onRequestClose={onClose}><View style={styles.backdrop}><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}><ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.modalContent}><View style={styles.modal}><View style={styles.modalHeader}><Text style={styles.modalTitle}>{entry.type === "transfer" ? t("تعديل التحويل بين الحسابات") : t("تعديل العملية")}</Text><Pressable onPress={onClose}><Text style={styles.close}>{t("إغلاق")}</Text></Pressable></View>{entry.type !== "transfer" && <><Text style={styles.label}>{t("نوع العملية")}</Text><View style={styles.typeWrap}>{([ ["debit", t("مدين · دخل")], ["credit", t("دائن · مصروف")] ] as const).map(([value, label]) => <Pressable key={value} onPress={() => setType(value)} style={[styles.typeChoice, type === value && styles.typeChoiceActive]}><Text style={[styles.typeText, type === value && styles.typeTextActive]}>{label}</Text></Pressable>)}</View><Text style={styles.label}>{t("نوع الحساب")}</Text><View style={styles.accountWrap}>{accounts.map((account) => <Pressable key={`edit-account-${account.id}`} onPress={() => setAccountId(account.id)} style={[styles.account, accountId === account.id && styles.accountActive]}><Text style={[styles.accountText, accountId === account.id && styles.accountTextActive]}>{account.name} · {account.kind === "cash" ? t("نقدي", "Cash") : t("بنك", "Bank")}</Text></Pressable>)}</View></>}{entry.type === "transfer" && <><Text style={styles.label}>{t("من الحساب")}</Text><View style={styles.accountWrap}>{accounts.map((account) => <Pressable key={`edit-from-${account.id}`} onPress={() => setFromId(account.id)} style={[styles.account, fromId === account.id && styles.accountActive]}><Text style={[styles.accountText, fromId === account.id && styles.accountTextActive]}>{account.name} · {account.kind === "cash" ? t("نقدي", "Cash") : t("بنك", "Bank")}</Text></Pressable>)}</View><Text style={styles.label}>{t("إلى الحساب")}</Text><View style={styles.accountWrap}>{accounts.map((account) => <Pressable key={`edit-to-${account.id}`} onPress={() => setToId(account.id)} style={[styles.account, toId === account.id && styles.accountActive]}><Text style={[styles.accountText, toId === account.id && styles.accountTextActive]}>{account.name} · {account.kind === "cash" ? t("نقدي", "Cash") : t("بنك", "Bank")}</Text></Pressable>)}</View></>}<Text style={styles.label}>{t("المبلغ")}</Text><TextInput value={amount} onChangeText={setAmount} keyboardType="decimal-pad" style={styles.input} /><Text style={styles.label}>{t("البيان")}</Text><TextInput value={note} onChangeText={setNote} style={styles.input} /><DatePickerField label={t("التاريخ")} value={date} onChange={setDate} />{type === "credit" && <><Text style={styles.label}>{t("التصنيف")}</Text><View style={styles.categoryWrap}>{categories.map((item) => <Pressable key={item.id} onPress={() => setCategory(item.id)} style={[styles.category, category === item.id && { backgroundColor: item.color }]}><Text style={[styles.categoryText, category === item.id && { color: "#FFF" }]}>{item.name}</Text></Pressable>)}</View></>}<Pressable onPress={save} style={styles.primary}><Text style={styles.primaryText}>{t("حفظ التعديل")}</Text></Pressable></View></ScrollView></KeyboardAvoidingView></View></Modal>;
+  return (
+    <Modal
+      visible={Boolean(entry)}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
+      <View style={styles.backdrop}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            contentContainerStyle={styles.modalContent}
+          >
+            <View style={styles.modal}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  {entry.type === "transfer"
+                    ? t("تعديل التحويل بين الحسابات")
+                    : t("تعديل العملية")}
+                </Text>
+                <Pressable onPress={onClose}>
+                  <Text style={styles.close}>{t("إغلاق")}</Text>
+                </Pressable>
+              </View>
+              {entry.type !== "transfer" && (
+                <>
+                  <Text style={styles.label}>{t("نوع العملية")}</Text>
+                  <View style={styles.typeWrap}>
+                    {(
+                      [
+                        ["debit", t("مدين · دخل")],
+                        ["credit", t("دائن · مصروف")],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <Pressable
+                        key={value}
+                        onPress={() => setType(value)}
+                        style={[
+                          styles.typeChoice,
+                          type === value && styles.typeChoiceActive,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.typeText,
+                            type === value && styles.typeTextActive,
+                          ]}
+                        >
+                          {label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <Text style={styles.label}>{t("نوع الحساب")}</Text>
+                  <View style={styles.accountWrap}>
+                    {accounts.map((account) => (
+                      <Pressable
+                        key={`edit-account-${account.id}`}
+                        onPress={() => setAccountId(account.id)}
+                        style={[
+                          styles.account,
+                          accountId === account.id && styles.accountActive,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.accountText,
+                            accountId === account.id &&
+                              styles.accountTextActive,
+                          ]}
+                        >
+                          {account.name} ·{" "}
+                          {account.kind === "cash"
+                            ? t("نقدي", "Cash")
+                            : t("بنك", "Bank")}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </>
+              )}
+              {entry.type === "transfer" && (
+                <>
+                  <Text style={styles.label}>{t("من الحساب")}</Text>
+                  <View style={styles.accountWrap}>
+                    {accounts.map((account) => (
+                      <Pressable
+                        key={`edit-from-${account.id}`}
+                        onPress={() => setFromId(account.id)}
+                        style={[
+                          styles.account,
+                          fromId === account.id && styles.accountActive,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.accountText,
+                            fromId === account.id && styles.accountTextActive,
+                          ]}
+                        >
+                          {account.name} ·{" "}
+                          {account.kind === "cash"
+                            ? t("نقدي", "Cash")
+                            : t("بنك", "Bank")}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <Text style={styles.label}>{t("إلى الحساب")}</Text>
+                  <View style={styles.accountWrap}>
+                    {accounts.map((account) => (
+                      <Pressable
+                        key={`edit-to-${account.id}`}
+                        onPress={() => setToId(account.id)}
+                        style={[
+                          styles.account,
+                          toId === account.id && styles.accountActive,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.accountText,
+                            toId === account.id && styles.accountTextActive,
+                          ]}
+                        >
+                          {account.name} ·{" "}
+                          {account.kind === "cash"
+                            ? t("نقدي", "Cash")
+                            : t("بنك", "Bank")}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </>
+              )}
+              <Text style={styles.label}>{t("المبلغ")}</Text>
+              <TextInput
+                value={amount}
+                onChangeText={setAmount}
+                keyboardType="decimal-pad"
+                style={styles.input}
+              />
+              <Text style={styles.label}>{t("البيان")}</Text>
+              <TextInput
+                value={note}
+                onChangeText={setNote}
+                style={styles.input}
+              />
+              <DatePickerField
+                label={t("التاريخ")}
+                value={date}
+                onChange={setDate}
+              />
+              {type === "credit" && (
+                <>
+                  <Text style={styles.label}>{t("التصنيف")}</Text>
+                  <View style={styles.categoryWrap}>
+                    {categories.map((item) => (
+                      <Pressable
+                        key={item.id}
+                        onPress={() => setCategory(item.id)}
+                        style={[
+                          styles.category,
+                          category === item.id && {
+                            backgroundColor: item.color,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.categoryText,
+                            category === item.id && { color: "#FFF" },
+                          ]}
+                        >
+                          {item.name}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </>
+              )}
+              <Pressable onPress={save} style={styles.primary}>
+                <Text style={styles.primaryText}>{t("حفظ التعديل")}</Text>
+              </Pressable>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </View>
+    </Modal>
+  );
 }
 
 export default function EntriesScreen() {
-  const { entries, deleteEntry, exportEntries, accounts, categories, currency } = useFinance();
+  const {
+    entries,
+    deleteEntry,
+    exportEntries,
+    accounts,
+    categories,
+    currency,
+  } = useFinance();
   const { t, language, numberStyle } = useI18n();
+  const { ledgerSortDirection, setLedgerSortDirection } = useAppPreferences();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | EntryType>("all");
   const [currencyFilter, setCurrencyFilter] = useState("all");
-  const [accountFilter, setAccountFilter] = useState<"all" | "cash" | "bank">("all");
-  const [sortDirection, setSortDirection] = useState<"desc" | "asc">("desc");
+  const [accountFilter, setAccountFilter] = useState<"all" | "cash" | "bank">(
+    "all",
+  );
+  const [bankFilter, setBankFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editing, setEditing] = useState<FinancialEntry | null>(null);
-  const filtered = useMemo(() => entries.filter((entry) => {
-    const account = accounts.find((item) => item.id === (entry.accountId ?? entry.account));
-    const transferMatches = entry.type === "transfer"
-      ? accounts.find((item) => item.id === entry.fromAccountId)?.kind === accountFilter || accounts.find((item) => item.id === entry.toAccountId)?.kind === accountFilter
-      : account?.kind === accountFilter;
-    return (filter === "all" || entry.type === filter) &&
-      (currencyFilter === "all" || (entry.currencyCode ?? currency.code) === currencyFilter) &&
-      (accountFilter === "all" || transferMatches) &&
-      `${entry.note} ${entry.date} ${entry.category ?? ""} ${entry.currencyCode ?? currency.code}`.toLocaleLowerCase().includes(query.toLocaleLowerCase());
-  }).sort((left, right) => {
-    const result = right.date.localeCompare(left.date) || right.createdAt - left.createdAt;
-    return sortDirection === "desc" ? result : -result;
-  }), [entries, accounts, filter, currencyFilter, accountFilter, currency.code, query, sortDirection]);
-  const remove = (id: string) => Alert.alert(t("حذف العملية؟"), t("لن يمكن التراجع عن هذا الإجراء."), [{ text: t("إلغاء", "Cancel"), style: "cancel" }, { text: t("حذف", "Delete"), style: "destructive", onPress: () => deleteEntry(id) }]);
-  const toggleSelected = (id: string) => setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
-  const exportSelected = () => generateAndSharePdf(t("تقرير العمليات المحددة", "Selected transactions report"), `${t("عدد العمليات", "Transactions")}: ${selectedIds.length}`, entries.filter((entry) => selectedIds.includes(entry.id)), currency.symbol, language, numberStyle);
-  return <ScreenContainer className="px-5 pt-5"><View style={styles.header}><Text style={styles.eyebrow}>{t("السجل المالي")}</Text><Text style={styles.title}>{t("الدفتر")}</Text></View><View style={styles.searchWrap}><TextInput value={query} onChangeText={setQuery} placeholder={t("ابحث عن البيان أو التاريخ")} placeholderTextColor="#98A2B3" style={styles.search} accessibilityLabel={t("البحث عن البيان")} /><Pressable onPress={() => setQuery("")} style={styles.clear}><Text style={styles.clearText}>{t("مسح")}</Text></Pressable></View><View style={styles.filters}>{([['all', t("الكل", "All")], ['debit', t("مدين", "Debit")], ['credit', t("دائن", "Credit")], ['transfer', t("تحويل", "Transfer")]] as const).map(([value, label]) => <Pressable key={value} onPress={() => setFilter(value)} style={[styles.filter, filter === value && styles.filterActive]}><Text style={[styles.filterText, filter === value && styles.filterTextActive]}>{label}</Text></Pressable>)}</View><View style={styles.filters}>{([['all', t("كل الحسابات", "All accounts")], ['cash', t("نقدي", "Cash")], ['bank', t("بنك", "Bank")]] as const).map(([value, label]) => <Pressable key={value} onPress={() => setAccountFilter(value)} style={[styles.filter, accountFilter === value && styles.filterActive]}><Text style={[styles.filterText, accountFilter === value && styles.filterTextActive]}>{label}</Text></Pressable>)}</View><View style={styles.sortRow}><Text style={styles.sortLabel}>{t("ترتيب التاريخ", "Date order")}</Text><Pressable onPress={() => setSortDirection((current) => current === "desc" ? "asc" : "desc")} style={styles.sortButton}><Text style={styles.sortButtonText}>{sortDirection === "desc" ? t("الأحدث أولًا", "Newest first") : t("الأقدم أولًا", "Oldest first")}</Text></Pressable></View><CurrencyDropdown value={currencyFilter} onChange={setCurrencyFilter} allowAll label={t("تصفية حسب العملة")} /><View style={styles.actionsRow}><Pressable onPress={exportEntries} style={styles.action}><Text style={styles.actionText}>{t("استخراج السجل")}</Text></Pressable><Pressable onPress={exportSelected} disabled={!selectedIds.length} style={[styles.action, !selectedIds.length && styles.actionDisabled]}><Text style={[styles.actionText, !selectedIds.length && styles.actionDisabledText]}>{t("PDF المحدد", "Selected PDF")} ({selectedIds.length})</Text></Pressable></View><FlatList data={filtered} keyExtractor={(item) => item.id} contentContainerStyle={{ paddingTop: 14, paddingBottom: 35 }} ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyTitle}>{t("لا توجد نتائج")}</Text><Text style={styles.emptyText}>{t("اكتب جزءًا من البيان للبحث داخل السجل.")}</Text></View>} renderItem={({ item }) => { const selected = selectedIds.includes(item.id); const accountName = item.type === "transfer" ? `${accounts.find((account) => account.id === item.fromAccountId)?.name ?? ""} → ${accounts.find((account) => account.id === item.toAccountId)?.name ?? ""}` : accounts.find((account) => account.id === (item.accountId ?? item.account))?.name ?? (item.account === "cash" ? t("نقدي", "Cash") : t("بنكي", "Bank")); const categoryName = categories.find((category) => category.id === item.category)?.name; const entryCurrency = findCurrency(item.currencyCode ?? currency.code); return <View style={[styles.row, selected && styles.rowSelected]}><Pressable onPress={() => toggleSelected(item.id)} style={[styles.checkbox, selected && styles.checkboxSelected]}><Text style={styles.checkmark}>{selected ? "✓" : ""}</Text></Pressable><View style={[styles.badge, { backgroundColor: item.type === "debit" ? "#E1F5F1" : item.type === "credit" ? "#FCE8E6" : "#E8EDF3" }]}><Text style={[styles.badgeText, { color: item.type === "debit" ? "#0F9B8E" : item.type === "credit" ? "#D95D55" : "#17365D" }]}>{item.type === "debit" ? t("مدين", "Debit") : item.type === "credit" ? t("دائن", "Credit") : t("تحويل", "Transfer")}</Text></View><View style={styles.info}><Text style={styles.note}>{item.note}</Text><Text style={styles.meta}>{formatDate(item.date, language, numberStyle)} · {accountName}{categoryName ? ` · ${categoryName}` : ""}</Text></View><View style={styles.actions}><Text style={[styles.amount, { color: item.type === "debit" ? "#0F9B8E" : "#D95D55" }]}>{item.type === "debit" ? "+" : "-"}{formatMoney(item.amount, entryCurrency.symbol, language, numberStyle)}</Text><View style={styles.inline}><Pressable onPress={() => setEditing(item)}><Text style={styles.edit}>{t("تعديل")}</Text></Pressable><Pressable onPress={() => remove(item.id)}><Text style={styles.delete}>{t("حذف")}</Text></Pressable></View></View></View>; }} /><EditEntryModal key={editing?.id ?? "none"} entry={editing} onClose={() => setEditing(null)} /></ScreenContainer>;
+  const filtered = useMemo(
+    () =>
+      entries
+        .filter((entry) => {
+          const account = accounts.find(
+            (item) => item.id === (entry.accountId ?? entry.account),
+          );
+          const transferMatches =
+            entry.type === "transfer"
+              ? accounts.some(
+                  (item) =>
+                    (item.id === entry.fromAccountId ||
+                      item.id === entry.toAccountId) &&
+                    (item.kind === accountFilter || item.id === bankFilter),
+                )
+              : account?.kind === accountFilter;
+          return (
+            (filter === "all" || entry.type === filter) &&
+            (currencyFilter === "all" ||
+              (entry.currencyCode ?? currency.code) === currencyFilter) &&
+            (accountFilter === "all" || transferMatches) &&
+            (bankFilter === "all" ||
+              (entry.type === "transfer"
+                ? entry.fromAccountId === bankFilter ||
+                  entry.toAccountId === bankFilter
+                : account?.id === bankFilter)) &&
+            `${entry.note} ${entry.date} ${entry.category ?? ""} ${entry.currencyCode ?? currency.code}`
+              .toLocaleLowerCase()
+              .includes(query.toLocaleLowerCase())
+          );
+        })
+        .sort((left, right) => {
+          const result =
+            right.date.localeCompare(left.date) ||
+            right.createdAt - left.createdAt;
+          return ledgerSortDirection === "desc" ? result : -result;
+        }),
+    [
+      entries,
+      accounts,
+      filter,
+      currencyFilter,
+      accountFilter,
+      bankFilter,
+      currency.code,
+      query,
+      ledgerSortDirection,
+    ],
+  );
+  const remove = (id: string) =>
+    Alert.alert(t("حذف العملية؟"), t("لن يمكن التراجع عن هذا الإجراء."), [
+      { text: t("إلغاء", "Cancel"), style: "cancel" },
+      {
+        text: t("حذف", "Delete"),
+        style: "destructive",
+        onPress: () => deleteEntry(id),
+      },
+    ]);
+  const toggleSelected = (id: string) =>
+    setSelectedIds((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id],
+    );
+  const exportSelected = () =>
+    generateAndSharePdf(
+      t("تقرير العمليات المحددة", "Selected transactions report"),
+      `${t("عدد العمليات", "Transactions")}: ${selectedIds.length}`,
+      entries.filter((entry) => selectedIds.includes(entry.id)),
+      currency.symbol,
+      language,
+      numberStyle,
+    );
+  return (
+    <ScreenContainer className="px-5 pt-5">
+      <View style={styles.header}>
+        <Text style={styles.eyebrow}>{t("السجل المالي")}</Text>
+        <Text style={styles.title}>{t("الدفتر")}</Text>
+      </View>
+      <View style={styles.searchWrap}>
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder={t("ابحث عن البيان أو التاريخ")}
+          placeholderTextColor="#98A2B3"
+          style={styles.search}
+          accessibilityLabel={t("البحث عن البيان")}
+        />
+        <Pressable onPress={() => setQuery("")} style={styles.clear}>
+          <Text style={styles.clearText}>{t("مسح")}</Text>
+        </Pressable>
+      </View>
+      <View style={styles.filters}>
+        {(
+          [
+            ["all", t("الكل", "All")],
+            ["debit", t("مدين", "Debit")],
+            ["credit", t("دائن", "Credit")],
+            ["transfer", t("تحويل", "Transfer")],
+          ] as const
+        ).map(([value, label]) => (
+          <Pressable
+            key={value}
+            onPress={() => setFilter(value)}
+            style={[styles.filter, filter === value && styles.filterActive]}
+          >
+            <Text
+              style={[
+                styles.filterText,
+                filter === value && styles.filterTextActive,
+              ]}
+            >
+              {label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      <View style={styles.filters}>
+        {(
+          [
+            ["all", t("كل الحسابات", "All accounts")],
+            ["cash", t("نقدي", "Cash")],
+            ["bank", t("بنك", "Bank")],
+          ] as const
+        ).map(([value, label]) => (
+          <Pressable
+            key={value}
+            onPress={() => setAccountFilter(value)}
+            style={[
+              styles.filter,
+              accountFilter === value && styles.filterActive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.filterText,
+                accountFilter === value && styles.filterTextActive,
+              ]}
+            >
+              {label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      <View style={styles.bankFilterRow}>
+        <Text style={styles.sortLabel}>{t("البنك", "Bank")}</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.bankChoices}
+        >
+          {[
+            ["all", t("كل البنوك", "All banks")],
+            ...accounts
+              .filter((item) => item.kind === "bank")
+              .map((item) => [item.id, item.name] as const),
+          ].map(([value, label]) => (
+            <Pressable
+              key={value}
+              onPress={() => setBankFilter(value)}
+              style={[
+                styles.bankChoice,
+                bankFilter === value && styles.filterActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterText,
+                  bankFilter === value && styles.filterTextActive,
+                ]}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </View>
+      <View style={styles.sortRow}>
+        <Text style={styles.sortLabel}>{t("ترتيب التاريخ", "Date order")}</Text>
+        <Pressable
+          onPress={() =>
+            setLedgerSortDirection(
+              ledgerSortDirection === "desc" ? "asc" : "desc",
+            )
+          }
+          style={styles.sortButton}
+        >
+          <Text style={styles.sortButtonText}>
+            {ledgerSortDirection === "desc"
+              ? t("الأحدث أولًا", "Newest first")
+              : t("الأقدم أولًا", "Oldest first")}
+          </Text>
+        </Pressable>
+      </View>
+      <CurrencyDropdown
+        value={currencyFilter}
+        onChange={setCurrencyFilter}
+        allowAll
+        label={t("تصفية حسب العملة")}
+      />
+      <View style={styles.actionsRow}>
+        <Pressable
+          onPress={() => exportEntries(filtered)}
+          style={styles.action}
+        >
+          <Text style={styles.actionText}>{t("استخراج السجل")}</Text>
+        </Pressable>
+        <Pressable
+          onPress={exportSelected}
+          disabled={!selectedIds.length}
+          style={[styles.action, !selectedIds.length && styles.actionDisabled]}
+        >
+          <Text
+            style={[
+              styles.actionText,
+              !selectedIds.length && styles.actionDisabledText,
+            ]}
+          >
+            {t("PDF المحدد", "Selected PDF")} ({selectedIds.length})
+          </Text>
+        </Pressable>
+      </View>
+      <FlatList
+        data={filtered}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{ paddingTop: 14, paddingBottom: 35 }}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.emptyTitle}>{t("لا توجد نتائج")}</Text>
+            <Text style={styles.emptyText}>
+              {t("اكتب جزءًا من البيان للبحث داخل السجل.")}
+            </Text>
+          </View>
+        }
+        renderItem={({ item }) => {
+          const selected = selectedIds.includes(item.id);
+          const accountName =
+            item.type === "transfer"
+              ? `${accounts.find((account) => account.id === item.fromAccountId)?.name ?? ""} → ${accounts.find((account) => account.id === item.toAccountId)?.name ?? ""}`
+              : (accounts.find(
+                  (account) => account.id === (item.accountId ?? item.account),
+                )?.name ??
+                (item.account === "cash"
+                  ? t("نقدي", "Cash")
+                  : t("بنكي", "Bank")));
+          const categoryName = categories.find(
+            (category) => category.id === item.category,
+          )?.name;
+          const entryCurrency = findCurrency(
+            item.currencyCode ?? currency.code,
+          );
+          return (
+            <View style={[styles.row, selected && styles.rowSelected]}>
+              <Pressable
+                onPress={() => toggleSelected(item.id)}
+                style={[styles.checkbox, selected && styles.checkboxSelected]}
+              >
+                <Text style={styles.checkmark}>{selected ? "✓" : ""}</Text>
+              </Pressable>
+              <View
+                style={[
+                  styles.badge,
+                  {
+                    backgroundColor:
+                      item.type === "debit"
+                        ? "#E1F5F1"
+                        : item.type === "credit"
+                          ? "#FCE8E6"
+                          : "#E8EDF3",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.badgeText,
+                    {
+                      color:
+                        item.type === "debit"
+                          ? "#0F9B8E"
+                          : item.type === "credit"
+                            ? "#D95D55"
+                            : "#17365D",
+                    },
+                  ]}
+                >
+                  {item.type === "debit"
+                    ? t("مدين", "Debit")
+                    : item.type === "credit"
+                      ? t("دائن", "Credit")
+                      : t("تحويل", "Transfer")}
+                </Text>
+              </View>
+              <View style={styles.info}>
+                <Text style={styles.note}>{item.note}</Text>
+                <Text style={styles.meta}>
+                  {formatDate(item.date, language, numberStyle)} · {accountName}
+                  {categoryName ? ` · ${categoryName}` : ""}
+                </Text>
+              </View>
+              <View style={styles.actions}>
+                <Text
+                  style={[
+                    styles.amount,
+                    { color: item.type === "debit" ? "#0F9B8E" : "#D95D55" },
+                  ]}
+                >
+                  {item.type === "debit" ? "+" : "-"}
+                  {formatMoney(
+                    item.amount,
+                    entryCurrency.symbol,
+                    language,
+                    numberStyle,
+                  )}
+                </Text>
+                <View style={styles.inline}>
+                  <Pressable onPress={() => setEditing(item)}>
+                    <Text style={styles.edit}>{t("تعديل")}</Text>
+                  </Pressable>
+                  <Pressable onPress={() => remove(item.id)}>
+                    <Text style={styles.delete}>{t("حذف")}</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          );
+        }}
+      />
+      <EditEntryModal
+        key={editing?.id ?? "none"}
+        entry={editing}
+        onClose={() => setEditing(null)}
+      />
+    </ScreenContainer>
+  );
 }
 
-const styles = StyleSheet.create({ header: { marginBottom: 14 }, eyebrow: { color: "#0F9B8E", fontSize: 14, fontWeight: "700", textAlign: "right" }, title: { color: "#17212B", fontSize: 30, fontWeight: "800", textAlign: "right", marginTop: 4 }, searchWrap: { flexDirection: "row-reverse", alignItems: "center", backgroundColor: "#FFFFFF", borderRadius: 14, borderWidth: 1, borderColor: "#E1E7EF" }, search: { flex: 1, padding: 13, textAlign: "right", color: "#17212B" }, clear: { paddingHorizontal: 12 }, clearText: { color: "#0F9B8E", fontWeight: "800", fontSize: 12 }, filters: { flexDirection: "row-reverse", gap: 7, marginVertical: 12 }, filter: { flex: 1, backgroundColor: "#E8EDF3", borderRadius: 10, paddingVertical: 9, alignItems: "center" }, filterActive: { backgroundColor: "#17365D" }, filterText: { color: "#667085", fontSize: 12, fontWeight: "700" }, filterTextActive: { color: "#FFFFFF" }, sortRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }, sortLabel: { color: "#667085", fontSize: 12, fontWeight: "700" }, sortButton: { backgroundColor: "#E8EDF3", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9 }, sortButtonText: { color: "#17365D", fontSize: 12, fontWeight: "800" }, actionsRow: { flexDirection: "row-reverse", gap: 8 }, action: { flex: 1, borderWidth: 1, borderColor: "#0F9B8E", borderRadius: 12, padding: 11, alignItems: "center" }, actionText: { color: "#0F9B8E", fontWeight: "800", fontSize: 12 }, actionDisabled: { borderColor: "#D8E2EC" }, actionDisabledText: { color: "#98A2B3" }, row: { backgroundColor: "#FFFFFF", borderRadius: 15, padding: 11, marginBottom: 8, flexDirection: "row-reverse", alignItems: "center", gap: 8 }, rowSelected: { borderWidth: 1, borderColor: "#0F9B8E" }, checkbox: { width: 23, height: 23, borderRadius: 7, borderWidth: 1.5, borderColor: "#C5D0DC", alignItems: "center", justifyContent: "center" }, checkboxSelected: { backgroundColor: "#0F9B8E", borderColor: "#0F9B8E" }, checkmark: { color: "#FFFFFF", fontWeight: "900" }, badge: { borderRadius: 9, paddingHorizontal: 7, paddingVertical: 6 }, badgeText: { fontSize: 10, fontWeight: "800" }, info: { flex: 1 }, note: { color: "#17212B", textAlign: "right", fontSize: 13, fontWeight: "700" }, meta: { color: "#667085", textAlign: "right", fontSize: 11, marginTop: 4 }, actions: { alignItems: "flex-end" }, inline: { flexDirection: "row-reverse", gap: 8, marginTop: 5 }, amount: { fontSize: 11, fontWeight: "800" }, edit: { color: "#0F9B8E", fontSize: 11, fontWeight: "700" }, delete: { color: "#98A2B3", fontSize: 11 }, empty: { backgroundColor: "#FFFFFF", borderRadius: 18, padding: 28, alignItems: "center", marginTop: 25 }, emptyTitle: { color: "#17212B", fontWeight: "800", fontSize: 16 }, emptyText: { color: "#667085", marginTop: 6 }, backdrop: { flex: 1, backgroundColor: "rgba(15, 23, 42, 0.35)", justifyContent: "flex-end" }, modalContent: { flexGrow: 1, justifyContent: "flex-end" }, modal: { backgroundColor: "#F6F8FB", borderTopLeftRadius: 26, borderTopRightRadius: 26, padding: 20, minHeight: 450 }, modalHeader: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }, modalTitle: { color: "#17212B", fontSize: 21, fontWeight: "800" }, close: { color: "#0F9B8E", fontWeight: "700" }, label: { color: "#667085", fontSize: 12, fontWeight: "700", textAlign: "right", marginTop: 10, marginBottom: 5 }, typeWrap: { flexDirection: "row-reverse", gap: 8, marginBottom: 4 }, typeChoice: { flex: 1, backgroundColor: "#E8EDF3", borderRadius: 10, padding: 11, alignItems: "center" }, typeChoiceActive: { backgroundColor: "#17365D" }, typeText: { color: "#667085", fontSize: 12, fontWeight: "700" }, typeTextActive: { color: "#FFFFFF" }, input: { backgroundColor: "#FFFFFF", borderColor: "#E1E7EF", borderWidth: 1, borderRadius: 12, padding: 12, textAlign: "right", color: "#17212B" }, accountWrap: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 7 }, account: { backgroundColor: "#E8EDF3", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9 }, accountActive: { backgroundColor: "#17365D" }, accountText: { color: "#667085", fontSize: 12, fontWeight: "700" }, accountTextActive: { color: "#FFFFFF" }, categoryWrap: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 7, marginBottom: 16 }, category: { backgroundColor: "#E8EDF3", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9 }, categoryText: { color: "#667085", fontSize: 12, fontWeight: "700" }, primary: { backgroundColor: "#17365D", borderRadius: 13, padding: 14, alignItems: "center" }, primaryText: { color: "#FFFFFF", fontWeight: "800" } });
+const styles = StyleSheet.create({
+  header: { marginBottom: 14 },
+  eyebrow: {
+    color: "#0F9B8E",
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "right",
+  },
+  title: {
+    color: "#17212B",
+    fontSize: 30,
+    fontWeight: "800",
+    textAlign: "right",
+    marginTop: 4,
+  },
+  searchWrap: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E1E7EF",
+  },
+  search: { flex: 1, padding: 13, textAlign: "right", color: "#17212B" },
+  clear: { paddingHorizontal: 12 },
+  clearText: { color: "#0F9B8E", fontWeight: "800", fontSize: 12 },
+  filters: { flexDirection: "row-reverse", gap: 7, marginVertical: 12 },
+  filter: {
+    flex: 1,
+    backgroundColor: "#E8EDF3",
+    borderRadius: 10,
+    paddingVertical: 9,
+    alignItems: "center",
+  },
+  filterActive: { backgroundColor: "#17365D" },
+  filterText: { color: "#667085", fontSize: 12, fontWeight: "700" },
+  filterTextActive: { color: "#FFFFFF" },
+  bankFilterRow: { marginBottom: 10 },
+  bankChoices: { flexDirection: "row-reverse", gap: 7, paddingVertical: 7 },
+  bankChoice: {
+    backgroundColor: "#E8EDF3",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  sortRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  sortLabel: { color: "#667085", fontSize: 12, fontWeight: "700" },
+  sortButton: {
+    backgroundColor: "#E8EDF3",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  sortButtonText: { color: "#17365D", fontSize: 12, fontWeight: "800" },
+  actionsRow: { flexDirection: "row-reverse", gap: 8 },
+  action: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#0F9B8E",
+    borderRadius: 12,
+    padding: 11,
+    alignItems: "center",
+  },
+  actionText: { color: "#0F9B8E", fontWeight: "800", fontSize: 12 },
+  actionDisabled: { borderColor: "#D8E2EC" },
+  actionDisabledText: { color: "#98A2B3" },
+  row: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 15,
+    padding: 11,
+    marginBottom: 8,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+  },
+  rowSelected: { borderWidth: 1, borderColor: "#0F9B8E" },
+  checkbox: {
+    width: 23,
+    height: 23,
+    borderRadius: 7,
+    borderWidth: 1.5,
+    borderColor: "#C5D0DC",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxSelected: { backgroundColor: "#0F9B8E", borderColor: "#0F9B8E" },
+  checkmark: { color: "#FFFFFF", fontWeight: "900" },
+  badge: { borderRadius: 9, paddingHorizontal: 7, paddingVertical: 6 },
+  badgeText: { fontSize: 10, fontWeight: "800" },
+  info: { flex: 1 },
+  note: {
+    color: "#17212B",
+    textAlign: "right",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  meta: { color: "#667085", textAlign: "right", fontSize: 11, marginTop: 4 },
+  actions: { alignItems: "flex-end" },
+  inline: { flexDirection: "row-reverse", gap: 8, marginTop: 5 },
+  amount: { fontSize: 11, fontWeight: "800" },
+  edit: { color: "#0F9B8E", fontSize: 11, fontWeight: "700" },
+  delete: { color: "#98A2B3", fontSize: 11 },
+  empty: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 28,
+    alignItems: "center",
+    marginTop: 25,
+  },
+  emptyTitle: { color: "#17212B", fontWeight: "800", fontSize: 16 },
+  emptyText: { color: "#667085", marginTop: 6 },
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.35)",
+    justifyContent: "flex-end",
+  },
+  modalContent: { flexGrow: 1, justifyContent: "flex-end" },
+  modal: {
+    backgroundColor: "#F6F8FB",
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    padding: 20,
+    minHeight: 450,
+  },
+  modalHeader: {
+    flexDirection: "row-reverse",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  modalTitle: { color: "#17212B", fontSize: 21, fontWeight: "800" },
+  close: { color: "#0F9B8E", fontWeight: "700" },
+  label: {
+    color: "#667085",
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "right",
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  typeWrap: { flexDirection: "row-reverse", gap: 8, marginBottom: 4 },
+  typeChoice: {
+    flex: 1,
+    backgroundColor: "#E8EDF3",
+    borderRadius: 10,
+    padding: 11,
+    alignItems: "center",
+  },
+  typeChoiceActive: { backgroundColor: "#17365D" },
+  typeText: { color: "#667085", fontSize: 12, fontWeight: "700" },
+  typeTextActive: { color: "#FFFFFF" },
+  input: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#E1E7EF",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    textAlign: "right",
+    color: "#17212B",
+  },
+  accountWrap: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 7 },
+  account: {
+    backgroundColor: "#E8EDF3",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  accountActive: { backgroundColor: "#17365D" },
+  accountText: { color: "#667085", fontSize: 12, fontWeight: "700" },
+  accountTextActive: { color: "#FFFFFF" },
+  categoryWrap: {
+    flexDirection: "row-reverse",
+    flexWrap: "wrap",
+    gap: 7,
+    marginBottom: 16,
+  },
+  category: {
+    backgroundColor: "#E8EDF3",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  categoryText: { color: "#667085", fontSize: 12, fontWeight: "700" },
+  primary: {
+    backgroundColor: "#17365D",
+    borderRadius: 13,
+    padding: 14,
+    alignItems: "center",
+  },
+  primaryText: { color: "#FFFFFF", fontWeight: "800" },
+});

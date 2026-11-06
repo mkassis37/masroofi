@@ -7,6 +7,7 @@ import { CurrencyDropdown } from "@/components/currency-dropdown";
 import { generateAndSharePdf } from "@/lib/pdf-reports";
 import { useI18n } from "@/lib/i18n";
 import { formatDigits } from "@/lib/number-format";
+import { DatePickerField } from "@/components/date-picker-field";
 
 function totalsByCurrency(
   entries: { type: string; amount: number; currencyCode?: string }[],
@@ -24,24 +25,38 @@ function totalsByCurrency(
 export default function ReportsScreen() {
   const { entries, currency, categories } = useFinance();
   const { t, language, numberStyle } = useI18n();
-  const [period, setPeriod] = useState<"month" | "year">("month");
+  const [period, setPeriod] = useState<"month" | "year" | "custom">("month");
   const [currencyFilter, setCurrencyFilter] = useState(currency.code);
   const now = new Date();
-  const currentMonth = now.toISOString().slice(0, 7);
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const currentYear = now.getFullYear().toString();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
   const visible = useMemo(
     () =>
       entries.filter((entry) => {
         const inPeriod =
-          period === "month"
-            ? entry.date.startsWith(currentMonth)
-            : entry.date.startsWith(currentYear);
+          period === "custom"
+            ? entry.date >= startDate && entry.date <= endDate
+            : period === "month"
+              ? entry.date.startsWith(currentMonth)
+              : entry.date.startsWith(currentYear);
         const inCurrency =
           currencyFilter === "all" ||
           (entry.currencyCode ?? currency.code) === currencyFilter;
         return inPeriod && inCurrency;
       }),
-    [entries, period, currentMonth, currentYear, currencyFilter, currency.code],
+    [
+      entries,
+      period,
+      currentMonth,
+      currentYear,
+      startDate,
+      endDate,
+      currencyFilter,
+      currency.code,
+    ],
   );
   const income = totalsByCurrency(visible, "debit");
   const expense = totalsByCurrency(visible, "credit");
@@ -85,12 +100,16 @@ export default function ReportsScreen() {
     );
   const exportPdf = () =>
     generateAndSharePdf(
-      period === "month"
-        ? t("التقرير الشهري", "Monthly report")
-        : t("التقرير السنوي", "Annual report"),
-      period === "month"
-        ? `${t("الفترة", "Period")}: ${formatDigits(currentMonth, numberStyle)}`
-        : `${t("السنة", "Year")}: ${formatDigits(currentYear, numberStyle)}`,
+      period === "custom"
+        ? t("تقرير الفترة المحددة", "Custom date range report")
+        : period === "month"
+          ? t("التقرير الشهري", "Monthly report")
+          : t("التقرير السنوي", "Annual report"),
+      period === "custom"
+        ? `${t("من", "From")}: ${formatDigits(startDate, numberStyle)} · ${t("إلى", "To")}: ${formatDigits(endDate, numberStyle)}`
+        : period === "month"
+          ? `${t("الفترة", "Period")}: ${formatDigits(currentMonth, numberStyle)}`
+          : `${t("السنة", "Year")}: ${formatDigits(currentYear, numberStyle)}`,
       visible,
       currency.symbol,
       language,
@@ -131,7 +150,38 @@ export default function ReportsScreen() {
               {t("هذه السنة")}
             </Text>
           </Pressable>
+          <Pressable
+            onPress={() => setPeriod("custom")}
+            style={[styles.period, period === "custom" && styles.active]}
+          >
+            <Text
+              style={[
+                styles.periodText,
+                period === "custom" && styles.activeText,
+              ]}
+            >
+              {t("تاريخ أو فترة")}
+            </Text>
+          </Pressable>
         </View>
+        {period === "custom" && (
+          <View style={styles.dateRange}>
+            <DatePickerField
+              label={t("من تاريخ", "From date")}
+              value={startDate}
+              onChange={(value) =>
+                setStartDate(value <= endDate ? value : endDate)
+              }
+            />
+            <DatePickerField
+              label={t("إلى تاريخ", "To date")}
+              value={endDate}
+              onChange={(value) =>
+                setEndDate(value >= startDate ? value : startDate)
+              }
+            />
+          </View>
+        )}
         <CurrencyDropdown
           label={t("عملة التقرير", "Report currency")}
           value={currencyFilter}
@@ -147,7 +197,11 @@ export default function ReportsScreen() {
         >
           <Text style={styles.pdfButtonText}>
             {t("إنشاء ومشاركة PDF")}{" "}
-            {period === "month" ? t("للشهر") : t("للسنة")}
+            {period === "custom"
+              ? t("للفترة")
+              : period === "month"
+                ? t("للشهر")
+                : t("للسنة")}
           </Text>
         </Pressable>
         {currencyCodes.length === 0 ? (
@@ -295,6 +349,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   period: { flex: 1, padding: 10, alignItems: "center", borderRadius: 10 },
+  dateRange: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 10,
+  },
   active: { backgroundColor: "#FFFFFF" },
   periodText: { color: "#667085", fontWeight: "700" },
   activeText: { color: "#17365D" },

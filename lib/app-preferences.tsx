@@ -21,6 +21,7 @@ type Preferences = {
   reminderDays: number;
   autoGitHubChecks: boolean;
   autoOtaChecks: boolean;
+  ledgerSortDirection: "desc" | "asc";
   updatedAt: number;
 };
 
@@ -39,6 +40,7 @@ type PreferencesContextValue = Preferences & {
   snoozeBackupReminder: () => void;
   setAutoGitHubChecks: (value: boolean) => void;
   setAutoOtaChecks: (value: boolean) => void;
+  setLedgerSortDirection: (value: "desc" | "asc") => void;
 };
 
 const KEY = "masroofi-app-preferences-v1";
@@ -51,6 +53,7 @@ const defaults: Preferences = {
   reminderDays: 30,
   autoGitHubChecks: true,
   autoOtaChecks: true,
+  ledgerSortDirection: "desc",
   updatedAt: 0,
 };
 const PreferencesContext = createContext<PreferencesContextValue | null>(null);
@@ -133,6 +136,8 @@ export function AppPreferencesProvider({
         updateLocal({ autoGitHubChecks }),
       setAutoOtaChecks: (autoOtaChecks: boolean) =>
         updateLocal({ autoOtaChecks }),
+      setLedgerSortDirection: (ledgerSortDirection: "desc" | "asc") =>
+        updateLocal({ ledgerSortDirection }),
     }),
     [hydrated, state],
   );

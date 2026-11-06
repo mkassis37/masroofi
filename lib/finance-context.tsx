@@ -106,7 +106,7 @@ type FinanceContextValue = {
     date: string,
     currencyCode?: string,
   ) => void;
-  exportEntries: () => Promise<void>;
+  exportEntries: (items?: FinancialEntry[]) => Promise<void>;
   createBackup: () => Promise<void>;
   restoreBackup: () => Promise<void>;
   getBackupPayload: () => string;
@@ -620,7 +620,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
           },
         ]);
       },
-      exportEntries: async () => {
+      exportEntries: async (items = entries) => {
         const header = (
           language === "en"
             ? [
@@ -644,7 +644,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         )
           .map(csvEscape)
           .join(",");
-        const rows = entries.map((entry) =>
+        const rows = items.map((entry) =>
           [
             entry.date,
             entry.type === "debit"
