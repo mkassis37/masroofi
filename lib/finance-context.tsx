@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { Alert, Platform, Share } from "react-native";
@@ -278,66 +279,124 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] =
     useState<ExpenseCategory[]>(DEFAULT_CATEGORIES);
   const [loading, setLoading] = useState(true);
+  const [storageReady, setStorageReady] = useState(false);
+  const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const writeRevisionRef = useRef(0);
+  const saveFailureNotifiedRef = useRef(false);
   const [currencyCode, setCurrencyCode] = useState(DEFAULT_CURRENCY.code);
   const [yearlyRollovers, setYearlyRollovers] = useState<YearRollover[]>([]);
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((raw) => {
-        if (!raw) return;
-        const saved = JSON.parse(raw) as Partial<{
-          entries: FinancialEntry[];
-          accounts: FinancialAccount[];
-          categories: ExpenseCategory[];
-          currencyCode: string;
-          openingCash: number;
-          openingBank: number;
-          yearlyRollovers: YearRollover[];
-        }>;
-        const legacyAccounts: FinancialAccount[] = [
-          {
-            id: "cash",
-            name: "النقد",
-            kind: "cash",
-            openingBalance: Number(saved.openingCash) || 0,
-            createdAt: 0,
-          },
-          { ...defaultBank(), openingBalance: Number(saved.openingBank) || 0 },
-        ];
-        const loadedCurrency = saved.currencyCode ?? DEFAULT_CURRENCY.code;
-        setAccounts(
-          (saved.accounts?.length ? saved.accounts : legacyAccounts).map(
-            (account) => normalizeAccount(account, loadedCurrency),
-          ),
-        );
-        setEntries(
-          (saved.entries ?? []).map((entry) =>
-            normalizeEntry(entry, loadedCurrency),
-          ),
-        );
-        setCategories(
-          saved.categories?.length ? saved.categories : DEFAULT_CATEGORIES,
-        );
-        setCurrencyCode(saved.currencyCode ?? DEFAULT_CURRENCY.code);
-        setYearlyRollovers(saved.yearlyRollovers ?? []);
-      })
-      .catch(() => undefined)
-      .finally(() => setLoading(false));
-  }, []);
+    let active = true;
+    const load = async () => {
+      try {
+        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw) as Partial<{
+            entries: FinancialEntry[];
+            accounts: FinancialAccount[];
+            categories: ExpenseCategory[];
+            currencyCode: string;
+            openingCash: number;
+            openingBank: number;
+            yearlyRollovers: YearRollover[];
+          }>;
+          const legacyAccounts: FinancialAccount[] = [
+            {
+              id: "cash",
+              name: "النقد",
+              kind: "cash",
+              openingBalance: Number(saved.openingCash) || 0,
+              createdAt: 0,
+            },
+            { ...defaultBank(), openingBalance: Number(saved.openingBank) || 0 },
+          ];
+          const loadedCurrency = saved.currencyCode ?? DEFAULT_CURRENCY.code;
+          setAccounts(
+            (saved.accounts?.length ? saved.accounts : legacyAccounts).map(
+              (account) => normalizeAccount(account, loadedCurrency),
+            ),
+          );
+          setEntries(
+            (saved.entries ?? []).map((entry) =>
+              normalizeEntry(entry, loadedCurrency),
+            ),
+          );
+          setCategories(
+            saved.categories?.length ? saved.categories : DEFAULT_CATEGORIES,
+          );
+          setCurrencyCode(loadedCurrency);
+          setYearlyRollovers(saved.yearlyRollovers ?? []);
+        }
+        if (active) setStorageReady(true);
+      } catch (error) {
+        if (active) {
+          console.error("Masroofi: failed to load local financial data", error);
+          Alert.alert(
+            translate("تعذر تحميل البيانات", language, "Could not load data"),
+            translate(
+              "لم يتم تحميل السجل المحلي، لذلك أوقفنا الحفظ التلقائي لحماية بياناتك من الاستبدال. أغلق التطبيق وافتحه مجددًا، وإذا استمرت المشكلة أنشئ نسخة احتياطية من أي مصدر متاح قبل المتابعة.",
+              language,
+              "Your local ledger could not be loaded. Automatic saving has been paused to prevent overwriting your data. Restart the app; if the problem continues, make a backup from any available source before continuing.",
+            ),
+          );
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [language]);
 
   useEffect(() => {
-    if (!loading)
-      AsyncStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          entries,
-          accounts,
-          categories,
-          currencyCode,
-          yearlyRollovers,
-        }),
-      ).catch(() => undefined);
-  }, [entries, accounts, categories, currencyCode, yearlyRollovers, loading]);
+    if (loading || !storageReady) return;
+
+    const payload = JSON.stringify({
+      entries,
+      accounts,
+      categories,
+      currencyCode,
+      yearlyRollovers,
+    });
+    const revision = ++writeRevisionRef.current;
+
+    writeQueueRef.current = writeQueueRef.current
+      .catch(() => undefined)
+      .then(() => AsyncStorage.setItem(STORAGE_KEY, payload))
+      .then(() => {
+        if (revision === writeRevisionRef.current)
+          saveFailureNotifiedRef.current = false;
+      })
+      .catch((error) => {
+        console.error("Masroofi: failed to save local financial data", error);
+        if (
+          revision === writeRevisionRef.current &&
+          !saveFailureNotifiedRef.current
+        ) {
+          saveFailureNotifiedRef.current = true;
+          Alert.alert(
+            translate("تعذر حفظ البيانات", language, "Could not save data"),
+            translate(
+              "لم يتم تأكيد حفظ آخر التعديلات على الجهاز. تحقق من مساحة التخزين وحاول مجددًا، وأنشئ نسخة احتياطية عند الإمكان.",
+              language,
+              "The latest changes could not be confirmed as saved. Check device storage and try again, and create a backup when possible.",
+            ),
+          );
+        }
+      });
+  }, [
+    entries,
+    accounts,
+    categories,
+    currencyCode,
+    yearlyRollovers,
+    loading,
+    storageReady,
+    language,
+  ]);
 
   const balanceAccounts = accounts.map(
     ({ id, kind, openingBalance, openingBalances }) => ({
