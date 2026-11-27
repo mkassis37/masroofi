@@ -13,7 +13,7 @@ import {
   View,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { getLockEnabled, setLockEnabled } from "@/components/app-lock";
+import { canUseDeviceAuthentication, getLockEnabled, setLockEnabled } from "@/components/app-lock";
 import { formatMoney, useFinance } from "@/lib/finance-context";
 import { CURRENCIES } from "@/lib/currencies";
 import {
@@ -390,8 +390,28 @@ export default function SettingsScreen() {
                 <BackupPanel
                   lockEnabled={lockEnabled}
                   setLock={async (next: boolean) => {
-                    await setLockEnabled(next);
-                    setLockEnabledState(next);
+                    if (next) {
+                      const available = await canUseDeviceAuthentication();
+                      if (!available) {
+                        Alert.alert(
+                          t("تعذر تفعيل القفل", "Cannot enable app lock"),
+                          t(
+                            "فعّل بصمة الإصبع أو التعرّف على الوجه أو وسيلة المصادقة الحيوية في إعدادات الجهاز أولًا، ثم حاول مجددًا.",
+                            "Enroll a fingerprint or face unlock in your device settings before enabling the app lock.",
+                          ),
+                        );
+                        return;
+                      }
+                    }
+                    try {
+                      await setLockEnabled(next);
+                      setLockEnabledState(next);
+                    } catch {
+                      Alert.alert(
+                        t("تعذر حفظ الإعداد", "Could not save setting"),
+                        t("لم يتم تغيير إعداد القفل. حاول مرة أخرى.", "The lock setting was not changed. Please try again."),
+                      );
+                    }
                   }}
                   onBackup={doBackup}
                   onRestore={restoreBackup}
