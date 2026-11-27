@@ -377,157 +377,162 @@ export default function EntriesScreen() {
     );
   return (
     <ScreenContainer className="px-5 pt-5">
-      <View style={styles.header}>
-        <Text style={styles.eyebrow}>{t("السجل المالي")}</Text>
-        <Text style={styles.title}>{t("الدفتر")}</Text>
-      </View>
-      <View style={styles.searchWrap}>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder={t("ابحث عن البيان أو التاريخ")}
-          placeholderTextColor="#98A2B3"
-          style={styles.search}
-          accessibilityLabel={t("البحث عن البيان")}
-        />
-        <Pressable onPress={() => setQuery("")} style={styles.clear}>
-          <Text style={styles.clearText}>{t("مسح")}</Text>
-        </Pressable>
-      </View>
-      <View style={styles.filters}>
-        {(
-          [
-            ["all", t("الكل", "All")],
-            ["debit", t("مدين", "Debit")],
-            ["credit", t("دائن", "Credit")],
-            ["transfer", t("تحويل", "Transfer")],
-          ] as const
-        ).map(([value, label]) => (
-          <Pressable
-            key={value}
-            onPress={() => setFilter(value)}
-            style={[styles.filter, filter === value && styles.filterActive]}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                filter === value && styles.filterTextActive,
-              ]}
-            >
-              {label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-      <View style={styles.filters}>
-        {(
-          [
-            ["all", t("كل الحسابات", "All accounts")],
-            ["cash", t("نقدي", "Cash")],
-            ["bank", t("بنك", "Bank")],
-          ] as const
-        ).map(([value, label]) => (
-          <Pressable
-            key={value}
-            onPress={() => setAccountFilter(value)}
-            style={[
-              styles.filter,
-              accountFilter === value && styles.filterActive,
-            ]}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                accountFilter === value && styles.filterTextActive,
-              ]}
-            >
-              {label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-      <View style={styles.bankFilterRow}>
-        <Text style={styles.sortLabel}>{t("البنك", "Bank")}</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.bankChoices}
-        >
-          {[
-            ["all", t("كل البنوك", "All banks")],
-            ...accounts
-              .filter((item) => item.kind === "bank")
-              .map((item) => [item.id, item.name] as const),
-          ].map(([value, label]) => (
-            <Pressable
-              key={value}
-              onPress={() => setBankFilter(value)}
-              style={[
-                styles.bankChoice,
-                bankFilter === value && styles.filterActive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.filterText,
-                  bankFilter === value && styles.filterTextActive,
-                ]}
-              >
-                {label}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      </View>
-      <View style={styles.sortRow}>
-        <Text style={styles.sortLabel}>{t("ترتيب التاريخ", "Date order")}</Text>
-        <Pressable
-          onPress={() =>
-            setLedgerSortDirection(
-              ledgerSortDirection === "desc" ? "asc" : "desc",
-            )
-          }
-          style={styles.sortButton}
-        >
-          <Text style={styles.sortButtonText}>
-            {ledgerSortDirection === "desc"
-              ? t("الأحدث أولًا", "Newest first")
-              : t("الأقدم أولًا", "Oldest first")}
-          </Text>
-        </Pressable>
-      </View>
-      <CurrencyDropdown
-        value={currencyFilter}
-        onChange={setCurrencyFilter}
-        allowAll
-        label={t("تصفية حسب العملة")}
-      />
-      <View style={styles.actionsRow}>
-        <Pressable
-          onPress={() => exportEntries(filtered)}
-          style={styles.action}
-        >
-          <Text style={styles.actionText}>{t("استخراج السجل")}</Text>
-        </Pressable>
-        <Pressable
-          onPress={exportSelected}
-          disabled={!selectedIds.length}
-          style={[styles.action, !selectedIds.length && styles.actionDisabled]}
-        >
-          <Text
-            style={[
-              styles.actionText,
-              !selectedIds.length && styles.actionDisabledText,
-            ]}
-          >
-            {t("PDF المحدد", "Selected PDF")} ({selectedIds.length})
-          </Text>
-        </Pressable>
-      </View>
       <FlatList
+        style={styles.list}
         data={filtered}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingTop: 14, paddingBottom: 35 }}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          <View>
+                  <View style={styles.header}>
+                    <Text style={styles.eyebrow}>{t("السجل المالي")}</Text>
+                    <Text style={styles.title}>{t("الدفتر")}</Text>
+                  </View>
+                  <View style={styles.searchWrap}>
+                    <TextInput
+                      value={query}
+                      onChangeText={setQuery}
+                      placeholder={t("ابحث عن البيان أو التاريخ")}
+                      placeholderTextColor="#98A2B3"
+                      style={styles.search}
+                      accessibilityLabel={t("البحث عن البيان")}
+                    />
+                    <Pressable onPress={() => setQuery("")} style={styles.clear}>
+                      <Text style={styles.clearText}>{t("مسح")}</Text>
+                    </Pressable>
+                  </View>
+                  <View style={styles.filters}>
+                    {(
+                      [
+                        ["all", t("الكل", "All")],
+                        ["debit", t("مدين", "Debit")],
+                        ["credit", t("دائن", "Credit")],
+                        ["transfer", t("تحويل", "Transfer")],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <Pressable
+                        key={value}
+                        onPress={() => setFilter(value)}
+                        style={[styles.filter, filter === value && styles.filterActive]}
+                      >
+                        <Text
+                          style={[
+                            styles.filterText,
+                            filter === value && styles.filterTextActive,
+                          ]}
+                        >
+                          {label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <View style={styles.filters}>
+                    {(
+                      [
+                        ["all", t("كل الحسابات", "All accounts")],
+                        ["cash", t("نقدي", "Cash")],
+                        ["bank", t("بنك", "Bank")],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <Pressable
+                        key={value}
+                        onPress={() => setAccountFilter(value)}
+                        style={[
+                          styles.filter,
+                          accountFilter === value && styles.filterActive,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.filterText,
+                            accountFilter === value && styles.filterTextActive,
+                          ]}
+                        >
+                          {label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <View style={styles.bankFilterRow}>
+                    <Text style={styles.sortLabel}>{t("البنك", "Bank")}</Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.bankChoices}
+                    >
+                      {[
+                        ["all", t("كل البنوك", "All banks")],
+                        ...accounts
+                          .filter((item) => item.kind === "bank")
+                          .map((item) => [item.id, item.name] as const),
+                      ].map(([value, label]) => (
+                        <Pressable
+                          key={value}
+                          onPress={() => setBankFilter(value)}
+                          style={[
+                            styles.bankChoice,
+                            bankFilter === value && styles.filterActive,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.filterText,
+                              bankFilter === value && styles.filterTextActive,
+                            ]}
+                          >
+                            {label}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  </View>
+                  <View style={styles.sortRow}>
+                    <Text style={styles.sortLabel}>{t("ترتيب التاريخ", "Date order")}</Text>
+                    <Pressable
+                      onPress={() =>
+                        setLedgerSortDirection(
+                          ledgerSortDirection === "desc" ? "asc" : "desc",
+                        )
+                      }
+                      style={styles.sortButton}
+                    >
+                      <Text style={styles.sortButtonText}>
+                        {ledgerSortDirection === "desc"
+                          ? t("الأحدث أولًا", "Newest first")
+                          : t("الأقدم أولًا", "Oldest first")}
+                      </Text>
+                    </Pressable>
+                  </View>
+                  <CurrencyDropdown
+                    value={currencyFilter}
+                    onChange={setCurrencyFilter}
+                    allowAll
+                    label={t("تصفية حسب العملة")}
+                  />
+                  <View style={styles.actionsRow}>
+                    <Pressable
+                      onPress={() => exportEntries(filtered)}
+                      style={styles.action}
+                    >
+                      <Text style={styles.actionText}>{t("استخراج السجل")}</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={exportSelected}
+                      disabled={!selectedIds.length}
+                      style={[styles.action, !selectedIds.length && styles.actionDisabled]}
+                    >
+                      <Text
+                        style={[
+                          styles.actionText,
+                          !selectedIds.length && styles.actionDisabledText,
+                        ]}
+                      >
+                        {t("PDF المحدد", "Selected PDF")} ({selectedIds.length})
+                      </Text>
+                    </Pressable>
+                  </View>
+          </View>
+        }
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>{t("لا توجد نتائج")}</Text>
@@ -555,75 +560,46 @@ export default function EntriesScreen() {
           );
           return (
             <View style={[styles.row, selected && styles.rowSelected]}>
-              <Pressable
-                onPress={() => toggleSelected(item.id)}
-                style={[styles.checkbox, selected && styles.checkboxSelected]}
-              >
-                <Text style={styles.checkmark}>{selected ? "✓" : ""}</Text>
-              </Pressable>
-              <View
-                style={[
-                  styles.badge,
-                  {
-                    backgroundColor:
-                      item.type === "debit"
-                        ? "#E1F5F1"
-                        : item.type === "credit"
-                          ? "#FCE8E6"
-                          : "#E8EDF3",
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.badgeText,
-                    {
-                      color:
-                        item.type === "debit"
-                          ? "#0F9B8E"
-                          : item.type === "credit"
-                            ? "#D95D55"
-                            : "#17365D",
-                    },
-                  ]}
+              <View style={styles.entryTop}>
+                <View style={styles.entryTitleGroup}>
+                  <View style={[styles.badge, {
+                    backgroundColor: item.type === "debit" ? "#E1F5F1" : item.type === "credit" ? "#FCE8E6" : "#E8EDF3",
+                  }]}>
+                    <Text style={[styles.badgeText, {
+                      color: item.type === "debit" ? "#0F9B8E" : item.type === "credit" ? "#D95D55" : "#17365D",
+                    }]}>
+                      {item.type === "debit" ? t("مدين", "Debit") : item.type === "credit" ? t("دائن", "Credit") : t("تحويل", "Transfer")}
+                    </Text>
+                  </View>
+                  <Text style={styles.note}>{item.note}</Text>
+                </View>
+                <Pressable
+                  onPress={() => toggleSelected(item.id)}
+                  style={[styles.checkbox, selected && styles.checkboxSelected]}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: selected }}
+                  accessibilityLabel={t("تحديد العملية")}
                 >
-                  {item.type === "debit"
-                    ? t("مدين", "Debit")
-                    : item.type === "credit"
-                      ? t("دائن", "Credit")
-                      : t("تحويل", "Transfer")}
-                </Text>
+                  <Text style={styles.checkmark}>{selected ? "✓" : ""}</Text>
+                </Pressable>
               </View>
-              <View style={styles.info}>
-                <Text style={styles.note}>{item.note}</Text>
+              <View style={styles.entryDetails}>
+                <Text style={[styles.amount, { color: item.type === "debit" ? "#0F9B8E" : "#D95D55" }]}>
+                  {item.type === "debit" ? "+" : item.type === "credit" ? "-" : ""}
+                  {formatMoney(item.amount, entryCurrency.symbol, language, numberStyle)}
+                </Text>
                 <Text style={styles.meta}>
                   {formatDate(item.date, language, numberStyle)} · {accountName}
                   {categoryName ? ` · ${categoryName}` : ""}
                 </Text>
               </View>
-              <View style={styles.actions}>
-                <Text
-                  style={[
-                    styles.amount,
-                    { color: item.type === "debit" ? "#0F9B8E" : "#D95D55" },
-                  ]}
-                >
-                  {item.type === "debit" ? "+" : "-"}
-                  {formatMoney(
-                    item.amount,
-                    entryCurrency.symbol,
-                    language,
-                    numberStyle,
-                  )}
-                </Text>
-                <View style={styles.inline}>
-                  <Pressable onPress={() => setEditing(item)}>
-                    <Text style={styles.edit}>{t("تعديل")}</Text>
-                  </Pressable>
-                  <Pressable onPress={() => remove(item.id)}>
-                    <Text style={styles.delete}>{t("حذف")}</Text>
-                  </Pressable>
-                </View>
+              <View style={styles.entryFooter}>
+                <Pressable onPress={() => setEditing(item)} style={styles.entryAction}>
+                  <Text style={styles.edit}>{t("تعديل")}</Text>
+                </Pressable>
+                <Pressable onPress={() => remove(item.id)} style={styles.entryAction}>
+                  <Text style={styles.delete}>{t("حذف")}</Text>
+                </Pressable>
               </View>
             </View>
           );
@@ -639,6 +615,8 @@ export default function EntriesScreen() {
 }
 
 const styles = StyleSheet.create({
+  list: { flex: 1, minHeight: 0 },
+  listContent: { paddingBottom: 28 },
   header: { marginBottom: 14 },
   eyebrow: {
     color: "#0F9B8E",
@@ -710,14 +688,15 @@ const styles = StyleSheet.create({
   actionDisabled: { borderColor: "#D8E2EC" },
   actionDisabledText: { color: "#98A2B3" },
   row: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 15,
-    padding: 11,
-    marginBottom: 8,
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: 8,
+    backgroundColor: "#FFFFFF", borderRadius: 18, padding: 15,
+    marginTop: 10, marginHorizontal: 1, gap: 12,
+    borderWidth: 1, borderColor: "#EEF1F5",
   },
+  entryTop: { flexDirection: "row-reverse", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
+  entryTitleGroup: { flex: 1, flexDirection: "row-reverse", alignItems: "center", gap: 9 },
+  entryDetails: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, paddingTop: 2 },
+  entryFooter: { flexDirection: "row-reverse", justifyContent: "flex-start", gap: 9, borderTopWidth: 1, borderTopColor: "#F0F2F5", paddingTop: 9 },
+  entryAction: { minWidth: 62, alignItems: "center", paddingVertical: 7, paddingHorizontal: 12, borderRadius: 9, backgroundColor: "#F6F8FA" },
   rowSelected: { borderWidth: 1, borderColor: "#0F9B8E" },
   checkbox: {
     width: 23,
@@ -732,19 +711,18 @@ const styles = StyleSheet.create({
   checkmark: { color: "#FFFFFF", fontWeight: "900" },
   badge: { borderRadius: 9, paddingHorizontal: 7, paddingVertical: 6 },
   badgeText: { fontSize: 10, fontWeight: "800" },
-  info: { flex: 1 },
   note: {
     color: "#17212B",
     textAlign: "right",
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 16,
+    lineHeight: 23,
+    fontWeight: "800",
+    flex: 1,
   },
-  meta: { color: "#667085", textAlign: "right", fontSize: 11, marginTop: 4 },
-  actions: { alignItems: "flex-end" },
-  inline: { flexDirection: "row-reverse", gap: 8, marginTop: 5 },
-  amount: { fontSize: 11, fontWeight: "800" },
-  edit: { color: "#0F9B8E", fontSize: 11, fontWeight: "700" },
-  delete: { color: "#98A2B3", fontSize: 11 },
+  meta: { color: "#667085", textAlign: "right", fontSize: 12, lineHeight: 19, flexShrink: 1 },
+  amount: { fontSize: 17, fontWeight: "900", textAlign: "right" },
+  edit: { color: "#0F9B8E", fontSize: 13, fontWeight: "800" },
+  delete: { color: "#C26A70", fontSize: 13, fontWeight: "700" },
   empty: {
     backgroundColor: "#FFFFFF",
     borderRadius: 18,
