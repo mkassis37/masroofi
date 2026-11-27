@@ -85,13 +85,8 @@ export function AppLock({ children }: { children: React.ReactNode }) {
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "background" || state === "inactive") {
         backgrounded.current = true;
-        void getLockEnabled()
-          .then((enabled) => {
-            if (enabled && mounted.current) setLocked(true);
-          })
-          .catch(() => {
-            if (mounted.current) setLocked(true);
-          });
+        // Hide financial screens immediately while the app is not in the foreground.
+        if (mounted.current) setLocked(true);
       } else if (state === "active" && backgrounded.current) {
         backgrounded.current = false;
         void check();
