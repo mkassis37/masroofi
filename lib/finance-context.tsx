@@ -283,6 +283,8 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
   const writeRevisionRef = useRef(0);
   const saveFailureNotifiedRef = useRef(false);
+  const languageRef = useRef(language);
+  languageRef.current = language;
   const [currencyCode, setCurrencyCode] = useState(DEFAULT_CURRENCY.code);
   const [yearlyRollovers, setYearlyRollovers] = useState<YearRollover[]>([]);
 
@@ -333,10 +335,10 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         if (active) {
           console.error("Masroofi: failed to load local financial data", error);
           Alert.alert(
-            translate("تعذر تحميل البيانات", language, "Could not load data"),
+            translate("تعذر تحميل البيانات", languageRef.current, "Could not load data"),
             translate(
               "لم يتم تحميل السجل المحلي، لذلك أوقفنا الحفظ التلقائي لحماية بياناتك من الاستبدال. أغلق التطبيق وافتحه مجددًا، وإذا استمرت المشكلة أنشئ نسخة احتياطية من أي مصدر متاح قبل المتابعة.",
-              language,
+              languageRef.current,
               "Your local ledger could not be loaded. Automatic saving has been paused to prevent overwriting your data. Restart the app; if the problem continues, make a backup from any available source before continuing.",
             ),
           );
@@ -349,7 +351,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     return () => {
       active = false;
     };
-  }, [language]);
+  }, []);
 
   useEffect(() => {
     if (loading || !storageReady) return;
