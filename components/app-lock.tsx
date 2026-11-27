@@ -50,11 +50,13 @@ export function AppLock({ children }: { children: React.ReactNode }) {
   const [locked, setLocked] = useState(true);
   const [ready, setReady] = useState(false);
   const [checking, setChecking] = useState(false);
+  const checkingRef = useRef(false);
   const backgrounded = useRef(false);
   const mounted = useRef(true);
 
   const check = useCallback(async () => {
-    if (checking) return;
+    if (checkingRef.current) return;
+    checkingRef.current = true;
     setChecking(true);
     try {
       const enabled = await getLockEnabled();
@@ -70,11 +72,12 @@ export function AppLock({ children }: { children: React.ReactNode }) {
       if (mounted.current) setLocked(true);
     } finally {
       if (mounted.current) {
+        checkingRef.current = false;
         setChecking(false);
         setReady(true);
       }
     }
-  }, [checking, language]);
+  }, [language]);
 
   useEffect(() => {
     mounted.current = true;
